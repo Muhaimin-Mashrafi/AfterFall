@@ -27,8 +27,8 @@ flowchart TB
     subgraph Core["Plain Java simulation core (no Spring/JPA imports)"]
         Domain["domain package<br/>(package only, M0; model from M1)"]:::implemented
         SimPkg["simulation package<br/>(package only, M0)"]:::implemented
-        Clock["WorldClock + TickCoordinator<br/>(future, M3)"]:::future
-        Workers["RegionWorkers, ordered merge,<br/>WorldView snapshots, seeded RNG<br/>(future, M4)"]:::future
+        Clock["WorldClock + TickCoordinator<br/>(future, M3-M4)"]:::future
+        Workers["RegionWorkers, ordered merge,<br/>WorldView snapshots, seeded RNG<br/>(future, M3-M4)"]:::future
         Observer["ObserverAI + 4 policies<br/>(future, M6)"]:::future
         Bus["EventBus fan-out<br/>(future, M7)"]:::future
         Narrator["Narrator<br/>(future, M7)"]:::future
@@ -61,8 +61,8 @@ flowchart TB
     Clock -. "(future, M8)" .-> Choice
     Clock -. "(future, M9)" .-> RunRepository
     AsyncRec -. "(future, M9)" .-> EventRecorder
-    JpaAdapter -. implements .-> EventRecorder
-    JpaAdapter -. implements .-> RunRepository
-    MemAdapter -. implements .-> EventRecorder
-    MemAdapter -. implements .-> RunRepository
+    JpaAdapter -. "implements (future, M9)" .-> EventRecorder
+    JpaAdapter -. "implements (future, M9)" .-> RunRepository
+    MemAdapter -. "implements (future, M9)" .-> EventRecorder
+    MemAdapter -. "implements (future, M9)" .-> RunRepository
     JpaAdapter -. "(future, M9)" .-> DB

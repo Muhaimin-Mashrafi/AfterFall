@@ -1,0 +1,29 @@
+# Java / Maven
+**/target/
+.mvn/wrapper/maven-wrapper.jar.tmp
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.iml
+
+# Logs and temporary files
+*.log
+logs/
+*.tmp
+*.swp
+
+# Local secrets and configuration
+.env
+.env.*
+!.env.example
+**/application-local.properties
+**/application-local.yml
+**/application-secret.properties
+**/application-secret.yml
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini

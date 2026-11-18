@@ -12,7 +12,7 @@ The central moral is:
 
 ## Current status
 
-Pre-M0 setup. Application code has not yet been generated. See `PROGRESS.md` for the verified environment, milestone status and next steps.
+M0 complete: Spring Boot backend skeleton, package boundaries and initial component diagram. No simulation logic, persistence, or frontend yet. See `PROGRESS.md` for milestone status and next steps.
 
 ## Canonical project specification
 
@@ -60,9 +60,37 @@ Audience voting, a map, 100-survivor scale-up, extra crises, factions, trading, 
 
 Never commit passwords, API keys, access tokens or local secret configuration. Use environment variables or ignored local configuration.
 
+## Repository layout
+
+```
+backend/                 Spring Boot 4.1.2 Maven project (Java 21, jar packaging)
+  mvnw, mvnw.cmd, .mvn/  Maven Wrapper (downloads Maven 3.10.1; no global Maven needed)
+  src/main/java/com/afterfall/
+    AfterFallApplication.java   Spring Boot entry point
+    domain/          plain Java domain model (no Spring/JPA imports)
+    simulation/      plain Java simulation core (no Spring/JPA imports)
+    application/     use cases and ports (interfaces) such as EventRecorder
+    infrastructure/  adapters (persistence, messaging)
+    web/             REST and WebSocket/STOMP adapters
+    config/          Spring bean wiring
+docs/uml/component-diagram.mmd  initial Mermaid component diagram
+```
+
+`CoreBoundaryTest` fails the build if `domain` or `simulation` sources import Spring, JPA, Hibernate or PostgreSQL classes.
+
 ## Build and run
 
-Build/run commands will be added after M0 creates the Spring Boot application and Maven Wrapper. Do not guess commands before the project exists.
+Run from the `backend` directory in PowerShell (JDK 21 must be on `PATH` / `JAVA_HOME`):
+
+```powershell
+cd backend
+java -version                 # expect 21.x
+.\mvnw.cmd test              # context-load test + core boundary test
+.\mvnw.cmd package           # builds target\afterfall-backend-0.0.1-SNAPSHOT.jar
+java -jar target\afterfall-backend-0.0.1-SNAPSHOT.jar   # starts on http://localhost:8080
+```
+
+Alternatively, `.\mvnw.cmd spring-boot:run`. At M0 there are no endpoints yet, so `http://localhost:8080/` returns 404; this is expected. Stop the app with Ctrl+C. No database is required until M9.
 
 ## Project governance
 

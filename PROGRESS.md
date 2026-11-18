@@ -5,9 +5,9 @@ This file is the handoff point between Claude Code sessions. Update it after eve
 ## Current status
 - Project: AfterFall - The Last Days of Humanity
 - Canonical specification: `docs/blueprint/AfterFall-Blueprint-Revised-Solo.md`
-- Current milestone: Environment setup / pre-M0
-- Application code: Not started
-- Last updated: 2026-11-18
+- Current milestone: M0 complete (awaiting approval for M1)
+- Application code: Spring Boot skeleton only; no simulation logic
+- Last updated: 2026-11-19
 
 ## Environment (user-reported)
 - Windows 10 Pro, 64-bit.
@@ -35,7 +35,7 @@ This file is the handoff point between Claude Code sessions. Update it after eve
 | Milestone | Scope | Status |
 |---|---|---|
 | Environment | JDK, Git, PostgreSQL, VS Code, workspace | Mostly complete; verify extensions and Git remote |
-| M0 | Spring Boot project setup, packages, initial UML | Not started |
+| M0 | Spring Boot project setup, packages, initial UML | Complete (2026-11-19) |
 | M1 | Domain model and OOP pillars | Not started |
 | M2 | Behaviours, actions and core patterns | Not started |
 | M3 | Correct single-threaded simulation baseline | Not started |
@@ -85,15 +85,45 @@ This file is the handoff point between Claude Code sessions. Update it after eve
 - Confirm Claude Code can be used with an individually authorized account; do not use a shared Pro login.
 - Maven is the recommended build tool; use Maven Wrapper. Confirm only if the course imposes another build tool.
 
-## Latest completed task
-- Environment and GitHub setup were performed by the user. The user reports the Git commands and remote setup are complete; command output has not yet been reviewed in this conversation.
+## Latest completed task: M0 (2026-11-19)
+Generated from Spring Initializr (start.spring.io) using its current default stable release, then trimmed.
+
+**Versions / dependencies**
+- Spring Boot 4.1.2 (`spring-boot-starter-parent`; Initializr default stable; snapshots/RCs not used).
+- `spring-boot-starter-webmvc` (compile) and `spring-boot-starter-webmvc-test` (test; JUnit 5, Mockito, AssertJ). Versions managed by the Boot parent.
+- Java 21 (`java.version`), jar packaging, groupId `com.afterfall`, artifactId `afterfall-backend`.
+- Maven Wrapper 3.3.4 (`distributionType=only-script`), Maven 3.10.1.
+- No PostgreSQL/JPA dependency or datasource config (deferred to M9). No credentials in any file.
+
+**Files created**
+- `backend/pom.xml`, `backend/mvnw`, `backend/mvnw.cmd`, `backend/.mvn/wrapper/maven-wrapper.properties`, `backend/.gitattributes`
+- `backend/src/main/java/com/afterfall/AfterFallApplication.java`
+- `backend/src/main/java/com/afterfall/{domain,simulation,application,infrastructure,web,config}/package-info.java`
+- `backend/src/main/resources/application.properties` (application name only)
+- `backend/src/test/java/com/afterfall/AfterFallApplicationTests.java` (context load)
+- `backend/src/test/java/com/afterfall/CoreBoundaryTest.java` (fails if domain/simulation import Spring, JPA, Hibernate or PostgreSQL)
+- `docs/uml/component-diagram.mmd` (initial; future components dashed and labelled with milestone)
+- `README.md` updated (status, layout, build/test/run commands)
+
+**Commands run (PowerShell, from `backend/`) and results**
+- `java -version` -> Temurin 21.0.13+9 LTS.
+- `.\mvnw.cmd -v` -> Apache Maven 3.10.1, Java 21.0.13.
+- `.\mvnw.cmd test` -> Tests run: 2, Failures: 0, Errors: 0, Skipped: 0. BUILD SUCCESS.
+- `.\mvnw.cmd package` -> Tests run: 2, Failures: 0; built and repackaged `target\afterfall-backend-0.0.1-SNAPSHOT.jar`. BUILD SUCCESS.
+- Smoke run: `java -jar target\afterfall-backend-0.0.1-SNAPSHOT.jar` -> Tomcat started on port 8080; `GET /` -> 404 (expected, no endpoints); process stopped.
+
+**Decisions**
+- Package skeleton uses the six top-level packages requested for M0; finer blueprint packages (behavior, action, crisis, events, observer, narrator, choice, snapshot, metrics) are added when their milestone starts.
+- Main class named `AfterFallApplication` (Initializr default name replaced).
+
+**Known issues / notes**
+- Test run prints a JVM warning about Mockito/Byte Buddy loading a Java agent dynamically. Harmless on JDK 21; can be silenced later by configuring the Mockito agent in Surefire if desired.
+- Mermaid diagram has not been rendered by a Mermaid tool in this session; preview it in VS Code/GitHub to confirm layout.
+- Nothing committed (per instructions).
 
 ## Next task
-1. Add this starter pack to the local workspace.
-2. Verify Git status and remote.
-3. Verify Spring Boot extensions and authorized Claude Code access.
-4. Commit the project instructions and canonical blueprint.
-5. Start M0 only after the user approves the M0 prompt.
+- M1: Domain model and OOP pillars. Start only after explicit user approval.
 
 ## Session log
+- 2026-11-19: M0 implemented and verified (Spring Boot 4.1.2 skeleton, package boundaries, boundary test, initial component diagram, README build commands).
 - 2026-11-18: Environment setup guided; JDK 21 and PostgreSQL 17.12 verified; `afterfall` database created; VS Code workspace and Java extension pack prepared; private GitHub repository created; revised solo blueprint adopted as source of truth.

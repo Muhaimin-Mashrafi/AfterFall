@@ -1,0 +1,68 @@
+%% AfterFall - UML component diagram (initial, M0)
+%% Solid border = exists at M0: the Spring Boot entry class and empty package-info-only packages.
+%% Dashed border + "(future, Mx)" = planned runtime component, not implemented yet.
+%% Dashed arrows = planned relationships; no runtime relationship exists at M0.
+%% The core depends only on ports (interfaces); Spring supplies adapters (Dependency Inversion).
+flowchart TB
+    classDef implemented fill:#E8E3D9,stroke:#171816,stroke-width:2px,color:#171816
+    classDef future fill:#ffffff,stroke:#827C6D,stroke-width:1px,stroke-dasharray: 5 5,color:#827C6D
+    classDef external fill:#827C6D,stroke:#171816,color:#E8E3D9
+
+    subgraph Browser["Browser (HTML/CSS/JS)"]
+        UI["Story-first UI<br/>Opening, Story, People,<br/>Recovered Records, Final Recording<br/>(future, M10-M11)"]:::future
+    end
+
+    subgraph Spring["Spring Boot application / infrastructure layer"]
+        App["AfterFallApplication<br/>(implemented, M0)"]:::implemented
+        Config["config package<br/>(package only, M0; no bean wiring yet)"]:::implemented
+        Rest["web: REST controllers<br/>(future, M9-M10)"]:::future
+        Stomp["web: WebSocket/STOMP broadcaster<br/>(future, M9-M10)"]:::future
+        subgraph Adapters["infrastructure adapters"]
+            JpaAdapter["JpaEventRecorder /<br/>JpaPostgresRunRepository<br/>(future, M9)"]:::future
+            MemAdapter["InMemoryEventRecorder /<br/>InMemoryRunRepository<br/>(future, M9)"]:::future
+            AsyncRec["Async recorder<br/>critical + bounded minor queues<br/>(future, M9)"]:::future
+        end
+    end
+
+    subgraph Core["Plain Java simulation core (no Spring/JPA imports)"]
+        Domain["domain package<br/>(package only, M0; model from M1)"]:::implemented
+        SimPkg["simulation package<br/>(package only, M0)"]:::implemented
+        Clock["WorldClock + TickCoordinator<br/>(future, M3)"]:::future
+        Workers["RegionWorkers, ordered merge,<br/>WorldView snapshots, seeded RNG<br/>(future, M4)"]:::future
+        Observer["ObserverAI + 4 policies<br/>(future, M6)"]:::future
+        Bus["EventBus fan-out<br/>(future, M7)"]:::future
+        Narrator["Narrator<br/>(future, M7)"]:::future
+        Choice["ChoiceCoordinator + chapters<br/>(future, M8)"]:::future
+    end
+
+    subgraph Ports["application: persistence ports (interfaces)"]
+        EventRecorder["EventRecorder<br/>(future, M9)"]:::future
+        RunRepository["RunRepository<br/>(future, M9)"]:::future
+    end
+
+    DB[("PostgreSQL 17<br/>database: afterfall<br/>(not connected; M9)")]:::external
+
+    %% All relationships below are planned (future); none is implemented at M0.
+    UI -. "REST commands (future, M10)" .-> Rest
+    Stomp -. "STOMP updates (future, M10)" .-> UI
+    App -. "component scan (future, M9)" .-> Config
+    Config -. "bean wiring (future, M9)" .-> Clock
+    Rest -. "validated, stamped commands (future, M9)" .-> Clock
+    Clock -. "(future, M3)" .-> Domain
+    Clock -. "(future, M4)" .-> Workers
+    SimPkg -. "will contain (future, M3-M4)" .-> Clock
+    SimPkg -. "will contain (future, M4)" .-> Workers
+    Clock -. "(future, M7)" .-> Bus
+    Observer -. "Intervention commands (future, M6)" .-> Clock
+    Bus -. "(future, M7)" .-> Narrator
+    Bus -. "(future, M6)" .-> Observer
+    Bus -. "(future, M9)" .-> Stomp
+    Bus -. "(future, M9)" .-> AsyncRec
+    Clock -. "(future, M8)" .-> Choice
+    Clock -. "(future, M9)" .-> RunRepository
+    AsyncRec -. "(future, M9)" .-> EventRecorder
+    JpaAdapter -. implements .-> EventRecorder
+    JpaAdapter -. implements .-> RunRepository
+    MemAdapter -. implements .-> EventRecorder
+    MemAdapter -. implements .-> RunRepository
+    JpaAdapter -. "(future, M9)" .-> DB

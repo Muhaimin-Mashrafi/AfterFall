@@ -5,23 +5,23 @@ This file is the handoff point between Claude Code sessions. Update it after eve
 ## Current status
 - Project: AfterFall - The Last Days of Humanity
 - Canonical specification: `docs/blueprint/AfterFall-Blueprint-Revised-Solo.md`
-- Current milestone: M0 complete (awaiting approval for M1)
-- Application code: Spring Boot skeleton only; no simulation logic
-- Last updated: 2026-11-19
+- Current milestone: M1 complete (Session 1, Session 2, and targeted final-review corrections verified; ready for M2)
+- Application code: Spring Boot skeleton plus human, regional and settlement domain models (no simulation logic)
+- Last updated: 2026-11-20
 
 ## Environment (user-reported)
+- Assistant: Google Antigravity
 - Windows 10 Pro, 64-bit.
 - Eclipse Temurin JDK 21.0.13 installed; `java`, `javac` and `JAVA_HOME` verified.
 - VS Code 1.146.0 installed.
 - Git 2.45.1 installed; Git Bash exists at `C:\Program Files\Git\bin\bash.exe`.
 - Node.js 26.13.1 and npm 11.20.0 installed.
-- PostgreSQL 17.12 installed; Windows service `postgresql-x64-17` was running.
+- PostgreSQL 17.12 installed; Windows service `postgresql-x64-17` running.
 - `psql` connection to `localhost:5432` as `postgres` succeeded.
-- pgAdmin 4 opens; database `afterfall` was created and visible in pgAdmin.
+- pgAdmin 4 opens; database `afterfall` created and visible in pgAdmin.
 - AfterFall workspace: `C:\Users\user\Projects\AfterFall`.
-- Java Extension Pack appears installed; VS Code status bar showed `Java: Ready`.
-- Spring Boot Extension Pack installation was observed in progress; verify it is fully installed before M0.
-- Claude Code VS Code extension appears installed. Authentication is not recorded as complete. Do not authenticate using a shared individual Pro login; use an individually authorized account.
+- Build system: Maven Wrapper (`mvnw.cmd`).
+- Spring Boot 4.1.2 verified.
 
 ## Git status
 - GitHub repository: `https://github.com/arthur-boyle-excalibur/AfterFall` (user reports it was created as private).
@@ -36,7 +36,7 @@ This file is the handoff point between Claude Code sessions. Update it after eve
 |---|---|---|
 | Environment | JDK, Git, PostgreSQL, VS Code, workspace | Mostly complete; verify extensions and Git remote |
 | M0 | Spring Boot project setup, packages, initial UML | Complete (2026-11-19) |
-| M1 | Domain model and OOP pillars | Not started |
+| M1 | Domain model and OOP pillars | In progress: Session 1 (human model + 4 corrections) and Session 2 (Region, Settlement, World, initial population) complete; final M1 review pending |
 | M2 | Behaviours, actions and core patterns | Not started |
 | M3 | Correct single-threaded simulation baseline | Not started |
 | M4 | Four workers, deterministic merge, RNG, migration and concurrency | Not started |
@@ -80,12 +80,71 @@ This file is the handoff point between Claude Code sessions. Update it after eve
 9. Cross-region relationship changes are returned as deltas and merged by TickCoordinator.
 
 ## Open items
-- Verify Spring Boot Extension Pack finished installing.
-- Verify `git status`, current branch and `origin` remote.
-- Confirm Claude Code can be used with an individually authorized account; do not use a shared Pro login.
-- Maven is the recommended build tool; use Maven Wrapper. Confirm only if the course imposes another build tool.
+- None. M0 setup complete, M1 Sessions 1 & 2 complete, and M1 final-review corrections verified.
+- Awaiting user approval to proceed to M2 (Behaviours, actions and core patterns).
 
-## Latest completed task: M0 (2026-11-19)
+## Latest completed task: M1 Session 2 - Region, Settlement, World & Initial Population (2026-11-20)
+Plain Java in `com.afterfall.domain`; no Spring/JPA imports (verified by `CoreBoundaryTest`).
+
+**Classes created/updated** (`backend/src/main/java/com/afterfall/domain/`)
+- `RegionId`: Positive integer record in `[1, 4]` identifying the four MUST processing regions (`REGION_1` through `REGION_4`), naturally ordered for deterministic processing.
+- `Region`: Maintains ordered `TreeSet<SurvivorId>` and minimal local state without geographical coordinates or UI math. Encapsulated views return unmodifiable sets.
+- `PopulationConfig`: Configuration record with `size` in `[20, 30]`, defaulting to 25.
+- `Survivor`: Updated with `location()` returning `Optional<RegionId>` and package-private `setLocation(RegionId)` managed centrally by `Settlement`.
+- `Settlement`: Aggregate root managing the 4 MUST regions and registered survivors. Enforces single-region membership, rejects duplicate registrations/IDs, prevents external mutation, and provides deterministic collections.
+- `World`: Root domain container encapsulating the `Settlement` without ticking or engine logic.
+- `InitialPopulation`: Deterministic generator supporting all counts 20-30 (default 25), balanced round-robin distribution across 4 regions, unique IDs, diverse personalities, and MUST professions.
+- `docs/uml/class-diagram.mmd`: Mermaid class diagram showing implemented classes, relationships, and planned future components.
+
+**Design decisions**
+- Location assignment is held on `Survivor` and kept strictly consistent with `Settlement`'s region index to prevent split-brain states.
+- `InitialPopulation` is a deterministic domain generator without premature GoF Factory abstraction.
+- `Settlement` pre-validates and guarantees exactly the four MUST regions on construction.
+
+**Tests** (`backend/src/test/java/com/afterfall/domain/`): `PopulationConfigTest`, `RegionTest`, `SettlementTest`, `WorldTest`, `InitialPopulationTest` (in addition to all Session 1 tests).
+
+**Command and result (PowerShell, from `backend/`)**
+- `.\mvnw.cmd test` -> Tests run: 88, Failures: 0, Errors: 0, Skipped: 0. BUILD SUCCESS (2 existing + 86 domain tests).
+
+**Known issues**: none. Nothing committed.
+
+## Next task
+- M1 Final Review & Approval -> Proceed to M2 (Behaviours, actions and core patterns). Start only after explicit user approval.
+
+## M1 Session 1 record (2026-11-20)
+Plain Java in `com.afterfall.domain`; no Spring/JPA imports (checked by `CoreBoundaryTest`). No behaviour, decay, thresholds or simulation logic.
+
+**Classes** (`backend/src/main/java/com/afterfall/domain/`)
+- `Scale` (0-100 range, `requireInRange`, overflow-safe `clamp`), `SurvivorId`, `EventId` (positive-id records; `SurvivorId` natural order = deterministic merge order).
+- `Needs` + `Need` (FOOD, WATER, REST, SAFETY; 100 = fully satisfied), `Health` + `HealthCondition` (vitality 0-100; HEALTHY/ILL/INJURED).
+- `Personality` (immutable; all eight `Trait` values 0-100; `with` returns a copy), `Profession` role object (immutable type + skill) with `ProfessionType` (the five MUST professions only).
+- `Inventory` + `ItemType` (FOOD, WATER, MEDICINE; capacity; never negative, never over capacity; failed operations leave state unchanged; `has` rejects negative amounts and accepts 0).
+- `Relationship` (type, trust, affection, hostility; bounded history of 20 `RelationshipEntry` snapshots, each with day and source `EventId`; rejects earlier days before mutation) + `RelationshipType`.
+- `CharacterMemory` (day, signed emotional impact -100..100 inclusive including 0, optional related survivor, required source `EventId`; no free text).
+- `Survivor` (composition of the above + `SurvivorStatus` ALIVE/DEAD; relationships in a `TreeMap` by target id; `remember` rejects earlier day before adding; identity = `SurvivorId`).
+
+**Design decisions & Session 1 corrections**
+- Profession is a field of Survivor, never a subclass; a test asserts this.
+- Components are mutable and exposed by accessors so the single-writer TickCoordinator can apply deltas later; Survivor guards only the invariants it owns. Collections are returned unmodifiable/copied.
+- Needs, Health and Inventory are mutable; Personality, Profession, CharacterMemory, RelationshipEntry and ids are immutable.
+- Relationship changes require a source `EventId` so history stays traceable to events.
+- **Correction 1 (`Relationship.java`):** `adjust()` and `changeType()` reject a day earlier than the last recorded history entry (`day < lastDay`); equal days are allowed. Rejection throws `IllegalArgumentException` prior to any state or history mutation.
+- **Correction 2 (`Survivor.java`):** `remember()` rejects a `CharacterMemory` whose day is earlier than the last stored memory (`memory.day() < lastDay`); equal days are allowed. Rejection leaves `memories` unchanged.
+- **Correction 3 (`Inventory.java`):** `has(type, amount)` throws `IllegalArgumentException` when `amount < 0`. Zero is allowed and returns `true` for a valid, non-null item type.
+- **Correction 4 (`CharacterMemory.java`):** `emotionalImpact = 0` is allowed; valid range is inclusive `[-100, 100]`. Javadoc updated.
+- Left out on purpose: location/region, current Behavior, faction (Session 2 / M2).
+
+**Tests** (`backend/src/test/java/com/afterfall/domain/`): `ScaleAndIdsTest`, `NeedsTest`, `HealthTest`, `PersonalityTest`, `ProfessionTest`, `InventoryTest`, `RelationshipTest`, `CharacterMemoryTest`, `SurvivorTest`.
+
+**Command and result (PowerShell, from `backend/`)**
+- `.\mvnw.cmd test` -> Tests run: 68, Failures: 0, Errors: 0, Skipped: 0. BUILD SUCCESS (2 existing + 66 domain tests).
+
+**Known issues**: none. Nothing committed.
+
+## Next task
+- M1 Session 2: Region, Settlement/World, initial population (20-30, configurable). Start only after explicit user approval.
+
+## M0 record (2026-11-19)
 Generated from Spring Initializr (start.spring.io) using its current default stable release, then trimmed.
 
 **Versions / dependencies**
@@ -121,9 +180,11 @@ Generated from Spring Initializr (start.spring.io) using its current default sta
 - Mermaid diagram has not been rendered by a Mermaid tool in this session; preview it in VS Code/GitHub to confirm layout.
 - Nothing committed (per instructions).
 
-## Next task
-- M1: Domain model and OOP pillars. Start only after explicit user approval.
+
 
 ## Session log
+- 2026-11-20: M1 Session 2 implemented and verified (Region, Settlement, World, PopulationConfig, InitialPopulation, class-diagram.mmd; 88 total passing tests).
+- 2026-11-20: M1 Session 1 four targeted domain-model corrections implemented and verified (68 total passing tests).
+- 2026-11-19: M1 Session 1 implemented and verified (human domain model, 63 new tests; 65 total passing).
 - 2026-11-19: M0 implemented and verified (Spring Boot 4.1.2 skeleton, package boundaries, boundary test, initial component diagram, README build commands).
 - 2026-11-18: Environment setup guided; JDK 21 and PostgreSQL 17.12 verified; `afterfall` database created; VS Code workspace and Java extension pack prepared; private GitHub repository created; revised solo blueprint adopted as source of truth.

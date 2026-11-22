@@ -20,6 +20,8 @@ class CoreBoundaryTest {
 
     private static final List<Path> CORE_DIRS = List.of(
             Path.of("src/main/java/com/afterfall/domain"),
+            Path.of("src/main/java/com/afterfall/behavior"),
+            Path.of("src/main/java/com/afterfall/action"),
             Path.of("src/main/java/com/afterfall/simulation"));
 
     private static final List<String> FORBIDDEN_PREFIXES = List.of(

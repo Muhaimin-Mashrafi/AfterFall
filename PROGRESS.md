@@ -5,8 +5,8 @@ This file is the handoff point between Claude Code sessions. Update it after eve
 ## Current status
 - Project: AfterFall - The Last Days of Humanity
 - Canonical specification: `docs/blueprint/AfterFall-Blueprint-Revised-Solo.md`
-- Current milestone: M1 complete (Session 1, Session 2, and targeted final-review corrections verified; ready for M2)
-- Application code: Spring Boot skeleton plus human, regional and settlement domain models (no simulation logic)
+- Current milestone: M2 complete (Behaviors, Actions, Strategy and Command patterns, deterministic evaluation; ready for M3)
+- Application code: Spring Boot skeleton plus human, regional, settlement domain models, autonomous behaviors, and action commands (no simulation ticking or threading yet)
 - Last updated: 2026-11-20
 
 ## Environment (user-reported)
@@ -36,8 +36,8 @@ This file is the handoff point between Claude Code sessions. Update it after eve
 |---|---|---|
 | Environment | JDK, Git, PostgreSQL, VS Code, workspace | Mostly complete; verify extensions and Git remote |
 | M0 | Spring Boot project setup, packages, initial UML | Complete (2026-11-19) |
-| M1 | Domain model and OOP pillars | In progress: Session 1 (human model + 4 corrections) and Session 2 (Region, Settlement, World, initial population) complete; final M1 review pending |
-| M2 | Behaviours, actions and core patterns | Not started |
+| M1 | Domain model and OOP pillars | Complete (Sessions 1 & 2 + final-review corrections; 2026-11-20) |
+| M2 | Behaviours, actions and core patterns | Complete (2026-11-20) |
 | M3 | Correct single-threaded simulation baseline | Not started |
 | M4 | Four workers, deterministic merge, RNG, migration and concurrency | Not started |
 | M5 | Resources and Famine/Disease crises | Not started |
@@ -80,10 +80,58 @@ This file is the handoff point between Claude Code sessions. Update it after eve
 9. Cross-region relationship changes are returned as deltas and merged by TickCoordinator.
 
 ## Open items
-- None. M0 setup complete, M1 Sessions 1 & 2 complete, and M1 final-review corrections verified.
-- Awaiting user approval to proceed to M2 (Behaviours, actions and core patterns).
+- None. M0, M1, and M2 completed and verified.
+- Awaiting user approval to proceed to M3 (Correct single-threaded simulation baseline).
 
-## Latest completed task: M1 Session 2 - Region, Settlement, World & Initial Population (2026-11-20)
+## Latest completed task: M2 - Autonomous Behaviours, Actions & Core Patterns (2026-11-20)
+Implemented in plain Java across `com.afterfall.behavior` and `com.afterfall.action`; no framework imports (verified by expanded `CoreBoundaryTest`).
+
+**Classes created**
+- **Action (Command Pattern, `com.afterfall.action`):**
+  - `Action` (interface): Defines `ActionResult evaluate(ActionContext context)`.
+  - `ActionType`, `ActionStatus`: Enums for action classification and success/rejection status.
+  - `ActionContext`: Immutable evaluation context encapsulating `SurvivorSnapshot`, `currentRegion`, food/medicine availability flags, and optional destination region.
+  - `ActionResult`: Immutable evaluation output containing typed proposed need deltas, vitality deltas, condition updates, inventory deltas, work contribution, migration requests, and immutable event proposals. Rejection cleanly returns no partial mutations.
+  - `ProposedEvent`: Immutable record representing an action's narrative event proposal.
+  - `EatAction`: Requires food; proposes +30 `Need.FOOD` and -1 `ItemType.FOOD` if personal item used.
+  - `WorkAction`: Proposes -15 `Need.REST` and produces work output scaled by profession skill.
+  - `RestAction`: Proposes +25 `Need.REST` energy restoration.
+  - `HealAction`: Requires ILL/INJURED condition and medicine; proposes `HealthCondition.HEALTHY`, +20 vitality, and -1 `ItemType.MEDICINE`.
+  - `MoveAction`: Proposes migration request to destination `RegionId` without modifying survivor or settlement rosters.
+- **Behavior (Strategy Pattern, `com.afterfall.behavior`):**
+  - `Behavior` (interface): Defines `Optional<Action> decide(BehaviorContext context)`.
+  - `BehaviorType`: Enum for strategy types (`SEEK_FOOD`, `WORK`, `REST`, `SEEK_MEDICAL_HELP`).
+  - `BehaviorContext`: Immutable decision context wrapping `SurvivorSnapshot`, region info, and candidate regions.
+  - `BehaviorConfig`: Centralized, validated threshold configuration (critical/fatigue/hunger limits).
+  - `SeekFoodBehavior`: Evaluates hunger need against threshold adjusted by traits (e.g. FEARFUL).
+  - `WorkBehavior`: Selects `WorkAction` when basic needs and health are met; influenced by profession skill and cooperativeness.
+  - `RestBehavior`: Selects `RestAction` when fatigued, respecting resilience traits.
+  - `SeekMedicalHelpBehavior`: Selects `HealAction` if medicine is present, or `MoveAction` toward shelter if local medicine is absent.
+  - `BehaviorSelector`: Deterministic coordinator evaluating strategies in strict priority order (Critical Medical -> Critical Starvation -> Critical Exhaustion -> Hunger -> Work -> Rest) with zero random state.
+- **Domain Snapshot (`com.afterfall.domain`):**
+  - `SurvivorSnapshot`: Immutable read-only projection of `Survivor` state with defensively copied collections to guarantee zero side-effects during evaluation.
+
+**Design Decisions & Patterns**
+- **Strategy Pattern:** `Behavior` interface and 4 concrete strategies encapsulate independent decision algorithms.
+- **Command Pattern:** `Action` interface and 5 concrete commands encapsulate actions as evaluatable objects returning immutable proposed changes.
+- **Strict Immutability:** Contexts and results expose no setters, no mutation lambdas (`Consumer<Survivor>`), and no direct references to mutable domain components.
+- **SOLID Compliance:** High cohesion and single responsibility per action/behavior; open for extension (adding new behaviors/actions requires zero changes to existing ones).
+
+**Tests** (`backend/src/test/java/`):
+- `com.afterfall.action.ActionTest`: 7 tests covering all 5 actions, rejection conditions, inventory usage, immutability, and zero side-effects.
+- `com.afterfall.behavior.BehaviorTest`: 7 tests covering all 4 behaviors, critical need prioritization, trait influence, dead survivor handling, and deterministic tie-breaking.
+- `com.afterfall.CoreBoundaryTest`: Expanded to verify zero framework imports in `domain`, `simulation`, `behavior`, and `action`.
+
+**Command and results (PowerShell, from `backend/`)**
+- `.\mvnw.cmd test` -> Tests run: 104, Failures: 0, Errors: 0, Skipped: 0. BUILD SUCCESS.
+- `.\mvnw.cmd package` -> Built repackaged executable JAR `afterfall-backend-0.0.1-SNAPSHOT.jar`. BUILD SUCCESS.
+
+**Known limitations**: Simulation engine and ticking are not yet running (scheduled for M3).
+
+## Next task
+- M3: Correct single-threaded simulation baseline (`WorldClock`, single-threaded `TickCoordinator`, action execution pipeline). Start only after explicit user approval.
+
+## M1 Session 2 record (2026-11-20)
 Plain Java in `com.afterfall.domain`; no Spring/JPA imports (verified by `CoreBoundaryTest`).
 
 **Classes created/updated** (`backend/src/main/java/com/afterfall/domain/`)

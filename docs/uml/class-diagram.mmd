@@ -1,6 +1,10 @@
 classDiagram
     direction TB
 
+    %% ==========================================
+    %% DOMAIN MODELS (Implemented M1 & M2)
+    %% ==========================================
+
     class Scale {
         +int MIN = 0$
         +int MAX = 100$
@@ -261,15 +265,217 @@ classDiagram
         +generateSurvivors(count)$ List~Survivor~
     }
 
-    %% Future Simulation Components (Planned)
-    class Behavior {
-        <<interface, planned M2>>
-        +decide(survivor, world) Action*
+    class SurvivorSnapshot {
+        <<record>>
+        +SurvivorId id
+        +String name
+        +Personality personality
+        +Profession profession
+        +Map~Need, Integer~ needLevels
+        +int vitality
+        +HealthCondition condition
+        +Map~ItemType, Integer~ inventoryQuantities
+        +int inventoryCapacity
+        +Optional~RegionId~ location
+        +SurvivorStatus status
+        +needLevel(need) int
+        +itemQuantity(type) int
+        +hasItem(type, amount) boolean
+        +isAlive() boolean
+        +from(survivor)$ SurvivorSnapshot
     }
+
+    %% ==========================================
+    %% COMMAND PATTERN — ACTIONS (Implemented M2)
+    %% ==========================================
+
+    class ActionType {
+        <<enumeration>>
+        EAT
+        WORK
+        REST
+        HEAL
+        MOVE
+    }
+
+    class ActionStatus {
+        <<enumeration>>
+        SUCCESS
+        REJECTED
+    }
+
+    class ProposedEvent {
+        <<record>>
+        +String eventType
+        +SurvivorId survivorId
+        +String summary
+        +int severity
+    }
+
+    class ActionContext {
+        <<record>>
+        +SurvivorSnapshot survivor
+        +RegionId currentRegion
+        +boolean foodAvailable
+        +boolean medicineAvailable
+        +Optional~RegionId~ destinationRegion
+        +of(survivor, currentRegion, food, med)$ ActionContext
+        +withDestination(survivor, currentRegion, food, med, dest)$ ActionContext
+    }
+
+    class ActionResult {
+        <<record>>
+        +ActionType actionType
+        +ActionStatus status
+        +Optional~String~ rejectionReason
+        +Map~Need, Integer~ needDeltas
+        +int vitalityDelta
+        +Optional~HealthCondition~ newCondition
+        +Map~ItemType, Integer~ inventoryDeltas
+        +int workContribution
+        +Optional~RegionId~ migrationRequest
+        +List~ProposedEvent~ eventProposals
+        +isSuccess() boolean
+        +rejected(type, reason)$ ActionResult
+        +builder(type)$ Builder
+    }
+
     class Action {
-        <<interface, planned M2>>
+        <<interface>>
         +evaluate(context) ActionResult*
+        +type() ActionType*
     }
+
+    class EatAction {
+        +HUNGER_REDUCTION = 30$
+        +evaluate(context) ActionResult
+        +type() ActionType
+    }
+
+    class WorkAction {
+        +BASE_REST_COST = -15$
+        +evaluate(context) ActionResult
+        +type() ActionType
+    }
+
+    class RestAction {
+        +REST_RESTORE = 25$
+        +evaluate(context) ActionResult
+        +type() ActionType
+    }
+
+    class HealAction {
+        +VITALITY_RECOVERY = 20$
+        +evaluate(context) ActionResult
+        +type() ActionType
+    }
+
+    class MoveAction {
+        -RegionId destination
+        +destination() RegionId
+        +evaluate(context) ActionResult
+        +type() ActionType
+    }
+
+    Action <|.. EatAction : implements
+    Action <|.. WorkAction : implements
+    Action <|.. RestAction : implements
+    Action <|.. HealAction : implements
+    Action <|.. MoveAction : implements
+
+    Action ..> ActionContext : evaluates
+    Action ..> ActionResult : returns
+
+    %% ==========================================
+    %% STRATEGY PATTERN — BEHAVIORS (Implemented M2)
+    %% ==========================================
+
+    class BehaviorType {
+        <<enumeration>>
+        SEEK_FOOD
+        WORK
+        REST
+        SEEK_MEDICAL_HELP
+    }
+
+    class BehaviorConfig {
+        <<record>>
+        +int criticalFoodThreshold
+        +int hungerThreshold
+        +int criticalRestThreshold
+        +int fatigueThreshold
+        +int criticalVitalityThreshold
+        +int healthVitalityThreshold
+        +defaultConfig()$ BehaviorConfig
+    }
+
+    class BehaviorContext {
+        <<record>>
+        +SurvivorSnapshot survivor
+        +RegionId currentRegion
+        +boolean foodAvailable
+        +boolean medicineAvailable
+        +List~RegionId~ candidateRegions
+        +of(survivor, currentRegion, food, med)$ BehaviorContext
+        +withCandidates(survivor, currentRegion, food, med, candidates)$ BehaviorContext
+    }
+
+    class Behavior {
+        <<interface>>
+        +decide(context) Optional~Action~*
+        +type() BehaviorType*
+    }
+
+    class SeekFoodBehavior {
+        -BehaviorConfig config
+        +decide(context) Optional~Action~
+        +type() BehaviorType
+    }
+
+    class WorkBehavior {
+        -BehaviorConfig config
+        +decide(context) Optional~Action~
+        +type() BehaviorType
+    }
+
+    class RestBehavior {
+        -BehaviorConfig config
+        +decide(context) Optional~Action~
+        +type() BehaviorType
+    }
+
+    class SeekMedicalHelpBehavior {
+        -BehaviorConfig config
+        +decide(context) Optional~Action~
+        +type() BehaviorType
+    }
+
+    class BehaviorSelector {
+        -BehaviorConfig config
+        -SeekMedicalHelpBehavior medicalBehavior
+        -SeekFoodBehavior foodBehavior
+        -RestBehavior restBehavior
+        -WorkBehavior workBehavior
+        +selectAction(context) Action
+    }
+
+    Behavior <|.. SeekFoodBehavior : implements
+    Behavior <|.. WorkBehavior : implements
+    Behavior <|.. RestBehavior : implements
+    Behavior <|.. SeekMedicalHelpBehavior : implements
+
+    Behavior ..> BehaviorContext : inspects
+    Behavior ..> Action : selects
+    BehaviorSelector o-- SeekFoodBehavior
+    BehaviorSelector o-- WorkBehavior
+    BehaviorSelector o-- RestBehavior
+    BehaviorSelector o-- SeekMedicalHelpBehavior
+    BehaviorSelector ..> Action : produces
+
+    %% ==========================================
+    %% FUTURE COMPONENTS (Planned)
+    %% ==========================================
+
     class TickCoordinator {
         <<planned M4>>
         +advanceTick() void
@@ -283,7 +489,7 @@ classDiagram
         +consume(amount) void
     }
 
-    %% Relationships and Composition
+    %% Core Relationships
     World *-- "1" Settlement : contains
     Settlement *-- "4" Region : manages
     Settlement o-- "20..30" Survivor : registers
@@ -313,8 +519,8 @@ classDiagram
     InitialPopulation ..> Settlement : creates
     InitialPopulation ..> PopulationConfig : uses
 
-    Behavior ..> Survivor : planned M2
-    Action ..> Survivor : planned M2
+    SurvivorSnapshot ..> Survivor : snapshots
+
     TickCoordinator ..> World : planned M4
     Crisis ..> World : planned M5
     Resource ..> Settlement : planned M5

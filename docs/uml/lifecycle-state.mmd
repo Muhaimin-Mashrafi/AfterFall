@@ -1,0 +1,23 @@
+stateDiagram-v2
+    [*] --> PAUSED : Engine Instantiation (baseline snapshot taken)
+
+    PAUSED --> RUNNING : start() / resume()
+    PAUSED --> STOPPING : stop()
+    PAUSED --> STOPPED : direct stop()
+
+    RUNNING --> PAUSE_REQUESTED : requestPause()
+    RUNNING --> PAUSED : pause() [outside tick execution]
+    RUNNING --> STOPPING : stop()
+    RUNNING --> STOPPED : direct stop()
+
+    state RUNNING {
+        [*] --> ExecuteTick
+        ExecuteTick --> [*] : Tick completed
+    }
+
+    PAUSE_REQUESTED --> PAUSED : Safe Tick Boundary Reached
+    PAUSE_REQUESTED --> STOPPED : stop()
+
+    STOPPING --> STOPPED : Cleanup Complete
+
+    STOPPED --> [*] : Terminal State (Cannot resume, start, or tick)

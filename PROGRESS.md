@@ -5,9 +5,9 @@ This file is the handoff point between Claude Code sessions. Update it after eve
 ## Current status
 - Project: AfterFall - The Last Days of Humanity
 - Canonical specification: `docs/blueprint/AfterFall-Blueprint-Revised-Solo.md`
-- Current milestone: M2 complete (Behaviors, Actions, Strategy and Command patterns, deterministic evaluation; ready for M3)
-- Application code: Spring Boot skeleton plus human, regional, settlement domain models, autonomous behaviors, and action commands (no simulation ticking or threading yet)
-- Last updated: 2026-11-20
+- Current milestone: M3 complete (Single-threaded simulation baseline: WorldClock, WorldView, TickCoordinator, StateChangeApplier, SimulationLifecycle, SimulationEngine, and integration tests; awaiting independent approval)
+- Application code: Spring Boot skeleton, domain models, autonomous behaviors, action commands, deterministic single-threaded simulation engine, batch rollback, and lifecycle state management
+- Last updated: 2026-11-23
 
 ## Environment (user-reported)
 - Assistant: Google Antigravity
@@ -38,7 +38,7 @@ This file is the handoff point between Claude Code sessions. Update it after eve
 | M0 | Spring Boot project setup, packages, initial UML | Complete (2026-11-19) |
 | M1 | Domain model and OOP pillars | Complete (Sessions 1 & 2 + final-review corrections; 2026-11-20) |
 | M2 | Behaviours, actions and core patterns | Complete (2026-11-20) |
-| M3 | Correct single-threaded simulation baseline | Not started |
+| M3 | Correct single-threaded simulation baseline | Complete (2026-11-23; awaiting independent approval) |
 | M4 | Four workers, deterministic merge, RNG, migration and concurrency | Not started |
 | M5 | Resources and Famine/Disease crises | Not started |
 | M6 | ObserverAI with four MUST policies | Not started |
@@ -80,10 +80,39 @@ This file is the handoff point between Claude Code sessions. Update it after eve
 9. Cross-region relationship changes are returned as deltas and merged by TickCoordinator.
 
 ## Open items
-- None. M0, M1, and M2 completed and verified.
-- Awaiting user approval to proceed to M3 (Correct single-threaded simulation baseline).
+- None. M0, M1, M2, and M3 completed and verified (130 passing tests).
+- Awaiting user approval on M3 completion to proceed to M4 (Four workers, deterministic merge, RNG, migration and concurrency).
 
-## Latest completed task: M2 - Autonomous Behaviours, Actions & Core Patterns (2026-11-20)
+## Latest completed task: M3 - Correct Single-Threaded Simulation Baseline (2026-11-23)
+Implemented in plain Java across `com.afterfall.simulation`; no framework imports (verified by boundary and suite tests).
+
+**Classes created**
+- **Simulation Clock & Snapshot Views:**
+  - `WorldClock`: Deterministic clock tracking tick numbers and day progression; advances only on tick completion.
+  - `WorldView`: Immutable snapshot of the settlement state at a specific tick, encapsulating read-only `RegionView` and `SurvivorView` records.
+  - `RegionView`: Read-only view of region metadata and resident survivor IDs.
+  - `SurvivorView`: Read-only snapshot of a survivor's needs, health, inventory, location, and status.
+- **Evaluation & State Application:**
+  - `SurvivorActionResult`: Immutable record pairing survivor ID, evaluation sequence number, and proposed `ActionResult`.
+  - `RegionResult`: Immutable result of processing a region during a tick in deterministic survivor ID order.
+  - `StateChangeApplier`: Atomic proposal application with pre-validation and all-or-nothing rollback for single survivors and multi-survivor batches.
+  - `TickResult`: Immutable output of a completed tick with ordered region results, event proposals, preserved resource claims, and migration requests.
+  - `TickCoordinator`: Orchestrates the 6-phase tick protocol sequentially: validates inputs, takes immutable `WorldView` snapshot, sequentially evaluates regions and survivors using M2 Strategy & Command components, pre-validates proposals, executes batch application, and advances clock.
+- **Lifecycle & Facade:**
+  - `SimulationLifecycle`: Explicit state machine (`RUNNING`, `PAUSE_REQUESTED`, `PAUSED`, `STOPPING`, `STOPPED`) with validated transitions and tick boundary pause enforcement.
+  - `SimulationEngine`: Unified single-threaded facade coordinating lifecycle, clock, and tick execution; safely publishes immutable `WorldView` snapshots.
+
+**Tests created & verified**
+- `StateChangeApplierTest`: Single-survivor atomic mutation and rollback on inventory exception.
+- `StateChangeApplierBatchTest`: Multi-survivor batch pre-validation and complete rollback of all survivors upon failure.
+- `TickCoordinatorSuccessTest`: 4-region deterministic sequential evaluation, clock progression, preserved claims and migrations.
+- `TickCoordinatorFailureTest`: Atomicity on injected evaluation failure; zero state mutations, clock does not advance.
+- `SimulationLifecycleTest`: Valid and invalid state transitions, idempotence, terminal state invariants.
+- `SimulationEngineTest`: Facade operation, pause at tick boundary, resume, stop, latest snapshot publication, and deterministic repeatability across runs.
+
+Total project tests passing: **130** (0 failures, 0 errors, 0 skipped).
+
+## Previous completed task: M2 - Autonomous Behaviours, Actions & Core Patterns (2026-11-20)
 Implemented in plain Java across `com.afterfall.behavior` and `com.afterfall.action`; no framework imports (verified by expanded `CoreBoundaryTest`).
 
 **Classes created**
@@ -126,10 +155,10 @@ Implemented in plain Java across `com.afterfall.behavior` and `com.afterfall.act
 - `.\mvnw.cmd test` -> Tests run: 104, Failures: 0, Errors: 0, Skipped: 0. BUILD SUCCESS.
 - `.\mvnw.cmd package` -> Built repackaged executable JAR `afterfall-backend-0.0.1-SNAPSHOT.jar`. BUILD SUCCESS.
 
-**Known limitations**: Simulation engine and ticking are not yet running (scheduled for M3).
+**Known limitations at M2 completion**: Simulation engine, ticking, and multithreading were not yet running (scheduled for M3/M4).
 
-## Next task
-- M3: Correct single-threaded simulation baseline (`WorldClock`, single-threaded `TickCoordinator`, action execution pipeline). Start only after explicit user approval.
+## Historical M2 next task (completed in M3)
+- M3: Correct single-threaded simulation baseline (`WorldClock`, single-threaded `TickCoordinator`, action execution pipeline). Completed 2026-11-23.
 
 ## M1 Session 2 record (2026-11-20)
 Plain Java in `com.afterfall.domain`; no Spring/JPA imports (verified by `CoreBoundaryTest`).
@@ -156,8 +185,8 @@ Plain Java in `com.afterfall.domain`; no Spring/JPA imports (verified by `CoreBo
 
 **Known issues**: none. Nothing committed.
 
-## Next task
-- M1 Final Review & Approval -> Proceed to M2 (Behaviours, actions and core patterns). Start only after explicit user approval.
+## Historical M1 Session 2 next task (completed in M2)
+- M1 Final Review & Approval -> Proceed to M2 (Behaviours, actions and core patterns). Completed 2026-11-20.
 
 ## M1 Session 1 record (2026-11-20)
 Plain Java in `com.afterfall.domain`; no Spring/JPA imports (checked by `CoreBoundaryTest`). No behaviour, decay, thresholds or simulation logic.
@@ -189,8 +218,8 @@ Plain Java in `com.afterfall.domain`; no Spring/JPA imports (checked by `CoreBou
 
 **Known issues**: none. Nothing committed.
 
-## Next task
-- M1 Session 2: Region, Settlement/World, initial population (20-30, configurable). Start only after explicit user approval.
+## Historical M1 Session 1 next task (completed in M1 Session 2)
+- M1 Session 2: Region, Settlement/World, initial population (20-30, configurable). Completed 2026-11-20.
 
 ## M0 record (2026-11-19)
 Generated from Spring Initializr (start.spring.io) using its current default stable release, then trimmed.

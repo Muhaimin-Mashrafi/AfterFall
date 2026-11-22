@@ -1,0 +1,54 @@
+sequenceDiagram
+    autonumber
+    actor Client
+    participant Engine as SimulationEngine
+    participant Lifecycle as SimulationLifecycle
+    participant Coordinator as TickCoordinator
+    participant World as World (Settlement)
+    participant View as WorldView
+    participant Behavior as BehaviorSelector
+    participant Action as Action Commands
+    participant Applier as StateChangeApplier
+    participant Clock as WorldClock
+
+    Client->>Engine: tick()
+    Engine->>Lifecycle: canExecuteTick()
+    Lifecycle-->>Engine: true
+
+    Engine->>Coordinator: executeTick()
+
+    Note over Coordinator: Phase 1: Overlap Check
+    Note over Coordinator: Phase 2: Snapshot Creation
+    Coordinator->>World: snapshot state
+    Coordinator->>View: snapshot(world, currentTick)
+    View-->>Coordinator: immutable WorldView
+
+    Note over Coordinator: Phase 3: Region & Survivor Evaluation
+    loop Region 1 to 4 (RegionId order)
+        loop Survivors in Region (SurvivorId order)
+            Coordinator->>Behavior: selectAction(BehaviorContext)
+            Behavior-->>Coordinator: Action
+            Coordinator->>Action: evaluate(ActionContext)
+            Action-->>Coordinator: ActionResult (proposals)
+        end
+    end
+
+    Note over Coordinator: Phase 4 & 5: Batch Validation & Application
+    Coordinator->>Applier: applyBatch(proposalsToApply)
+    alt Validation or Domain Mutation Throws
+        Applier-->>Coordinator: Rollback all modified survivors & throw
+        Coordinator-->>Engine: TickResult (failed, unadvanced)
+    else Successful Application
+        Applier-->>Coordinator: All mutations applied
+        Note over Coordinator: Phase 6: Advance Time & Build Result
+        Coordinator->>Clock: advance()
+        Coordinator-->>Engine: TickResult (success, advanced)
+        Engine->>World: snapshot(world, newTick)
+        Engine-->>Engine: update latestSnapshot
+    end
+
+    opt Pause was requested
+        Engine->>Lifecycle: transitionTo(PAUSED)
+    end
+
+    Engine-->>Client: TickResult

@@ -318,9 +318,6 @@ classDiagram
         +RegionId currentRegion
         +boolean foodAvailable
         +boolean medicineAvailable
-        +Optional~RegionId~ destinationRegion
-        +of(survivor, currentRegion, food, med)$ ActionContext
-        +withDestination(survivor, currentRegion, food, med, dest)$ ActionContext
     }
 
     class ActionResult {
@@ -382,6 +379,7 @@ classDiagram
     Action <|.. RestAction : implements
     Action <|.. HealAction : implements
     Action <|.. MoveAction : implements
+    MoveAction *-- "1" RegionId : destination
 
     Action ..> ActionContext : evaluates
     Action ..> ActionResult : returns
@@ -473,12 +471,161 @@ classDiagram
     BehaviorSelector ..> Action : produces
 
     %% ==========================================
-    %% FUTURE COMPONENTS (Planned)
+    %% SIMULATION ENGINE (Implemented M3)
     %% ==========================================
 
+    class SimulationLifecycle {
+        <<enumeration>>
+        RUNNING
+        PAUSE_REQUESTED
+        PAUSED
+        STOPPING
+        STOPPED
+        +canTransitionTo(target) boolean
+        +transitionTo(target) SimulationLifecycle
+        +isTerminal() boolean
+        +canExecuteTick() boolean
+    }
+
+    class WorldClock {
+        -long tick
+        -int ticksPerDay
+        -long day
+        +tick() long
+        +day() long
+        +ticksPerDay() int
+        ~advance() void
+        ~rollback() void
+    }
+
+    class StateChangeApplier {
+        +apply(result, survivor)$ void
+        +applyBatch(proposals)$ void
+    }
+
+    class WorldView {
+        <<record>>
+        +long tick
+        +long version
+        +Map~RegionId, RegionView~ regions
+        +Map~SurvivorId, SurvivorView~ survivors
+        +Map~SurvivorId, RegionId~ survivorRegionMap
+        +snapshot(world, tick)$ WorldView
+        +snapshot(world, tick, version)$ WorldView
+    }
+
+    class RegionView {
+        <<record>>
+        +RegionId id
+        +String name
+        +List~SurvivorId~ survivorIds
+    }
+
+    class SurvivorView {
+        <<record>>
+        +SurvivorId id
+        +String name
+        +Personality personality
+        +Profession profession
+        +Map~Need, Integer~ needLevels
+        +int vitality
+        +HealthCondition condition
+        +Map~ItemType, Integer~ inventoryQuantities
+        +int inventoryCapacity
+        +Optional~RegionId~ location
+        +SurvivorStatus status
+        +from(survivor)$ SurvivorView
+    }
+
+    class SurvivorActionResult {
+        <<record>>
+        +SurvivorId survivorId
+        +int sequenceNumber
+        +ActionResult actionResult
+    }
+
+    class MigrationRequest {
+        <<record>>
+        +SurvivorId survivorId
+        +RegionId sourceRegion
+        +RegionId destinationRegion
+        +int actionSequence
+    }
+
+    class RegionResult {
+        <<record>>
+        +RegionId regionId
+        +List~SurvivorActionResult~ survivorResults
+        +List~MigrationRequest~ migrationRequests
+        +actionResults() List~ActionResult~
+    }
+
+    class TickResult {
+        -long tickNumber
+        -long worldVersion
+        -List~RegionResult~ regionResults
+        -List~ProposedEvent~ events
+        -List~ResourceClaim~ resourceClaims
+        -List~MigrationRequest~ migrationRequests
+        -int survivorsProcessed
+        -int actionsAccepted
+        -int actionsRejected
+        -boolean success
+        -String failureReason
+        +isSuccess() boolean
+        +tickNumber() long
+        +worldVersion() long
+    }
+
     class TickCoordinator {
+        -World world
+        -WorldClock clock
+        -Function~BehaviorContext, Action~ actionDecider
+        -AtomicBoolean tickGuard
+        -long worldVersion
+        +executeTick() TickResult
+        +worldVersion() long
+    }
+
+    class SimulationEngine {
+        -World world
+        -WorldClock clock
+        -TickCoordinator coordinator
+        -SimulationLifecycle lifecycle
+        -WorldView latestSnapshot
+        +start() void
+        +tick() TickResult
+        +pause() void
+        +requestPause() void
+        +resume() void
+        +stop() void
+        +getLatestSnapshot() WorldView
+        +getStatus() SimulationLifecycle
+    }
+
+    SimulationEngine *-- "1" SimulationLifecycle : manages
+    SimulationEngine *-- "1" WorldClock : time
+    SimulationEngine *-- "1" TickCoordinator : delegates
+    SimulationEngine o-- "1" WorldView : publishes
+    TickCoordinator ..> WorldView : creates
+    TickCoordinator ..> StateChangeApplier : applies
+    TickCoordinator ..> TickResult : produces
+    TickCoordinator o-- "1" World : accesses
+    TickCoordinator o-- "1" WorldClock : advances
+    RegionResult *-- "0..*" SurvivorActionResult : contains
+    RegionResult *-- "0..*" MigrationRequest : contains
+    TickResult *-- "0..*" MigrationRequest : preserves
+    TickResult *-- "0..*" RegionResult : contains
+    WorldView *-- "4" RegionView : contains
+    WorldView *-- "20..30" SurvivorView : contains
+
+    %% ==========================================
+    %% FUTURE COMPONENTS (Planned M4 & M5)
+    %% ==========================================
+
+    class RegionWorker {
         <<planned M4>>
-        +advanceTick() void
+        +evaluateRegion(regionId) RegionResult
     }
     class Crisis {
         <<abstract, planned M5>>
@@ -521,6 +668,6 @@ classDiagram
 
     SurvivorSnapshot ..> Survivor : snapshots
 
-    TickCoordinator ..> World : planned M4
+    RegionWorker ..> TickCoordinator : planned M4
     Crisis ..> World : planned M5
     Resource ..> Settlement : planned M5

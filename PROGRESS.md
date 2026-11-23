@@ -5,8 +5,8 @@ This file is the handoff point between Claude Code sessions. Update it after eve
 ## Current status
 - Project: AfterFall - The Last Days of Humanity
 - Canonical specification: `docs/blueprint/AfterFall-Blueprint-Revised-Solo.md`
-- Current milestone: M3 complete (Single-threaded simulation baseline: WorldClock, WorldView, TickCoordinator, StateChangeApplier, SimulationLifecycle, SimulationEngine, and integration tests; awaiting independent approval)
-- Application code: Spring Boot skeleton, domain models, autonomous behaviors, action commands, deterministic single-threaded simulation engine, batch rollback, and lifecycle state management
+- Current milestone: M4 complete (Deterministic Multithreading: Four Region Workers, RegionWorkerPool, SeededRandomFactory, MigrationCoordinator, atomic migration handoff & rollback, concurrency & determinism tests, and architecture UML; awaiting independent approval)
+- Application code: Spring Boot skeleton, domain models, autonomous behaviors, action commands, 4-worker multithreaded simulation engine, deterministic merge, batch rollback, and lifecycle state management
 - Last updated: 2026-11-23
 
 ## Environment (user-reported)
@@ -38,8 +38,8 @@ This file is the handoff point between Claude Code sessions. Update it after eve
 | M0 | Spring Boot project setup, packages, initial UML | Complete (2026-11-19) |
 | M1 | Domain model and OOP pillars | Complete (Sessions 1 & 2 + final-review corrections; 2026-11-20) |
 | M2 | Behaviours, actions and core patterns | Complete (2026-11-20) |
-| M3 | Correct single-threaded simulation baseline | Complete (2026-11-23; awaiting independent approval) |
-| M4 | Four workers, deterministic merge, RNG, migration and concurrency | Not started |
+| M3 | Correct single-threaded simulation baseline | Complete (2026-11-23) |
+| M4 | Four workers, deterministic merge, RNG, migration and concurrency | Complete (2026-11-23; awaiting independent approval) |
 | M5 | Resources and Famine/Disease crises | Not started |
 | M6 | ObserverAI with four MUST policies | Not started |
 | M7 | EventBus and Narrator with 40+ templates | Not started |
@@ -80,10 +80,47 @@ This file is the handoff point between Claude Code sessions. Update it after eve
 9. Cross-region relationship changes are returned as deltas and merged by TickCoordinator.
 
 ## Open items
-- None. M0, M1, M2, and M3 completed and verified (130 passing tests).
-- Awaiting user approval on M3 completion to proceed to M4 (Four workers, deterministic merge, RNG, migration and concurrency).
+- None. M0, M1, M2, M3, and M4 completed and verified (152 passing tests).
+- Awaiting user approval on M4 completion to proceed to M5 (Resources and Famine/Disease crises).
 
-## Latest completed task: M3 - Correct Single-Threaded Simulation Baseline (2026-11-23)
+## Latest completed task: M4 - Deterministic Multithreading: Four Region Workers (2026-11-23)
+Implemented in plain Java across `com.afterfall.simulation` and `com.afterfall.domain`; no framework imports (verified by boundary and suite tests).
+
+**Classes created & enhanced**
+- **Concurrency & Parallel Evaluation:**
+  - `RegionWorkerPool`: Dedicated 4-thread `ExecutorService` with fixed daemon worker threads named `afterfall-region-1` through `afterfall-region-4`. Enforces exactly 4 tasks per invocation with graceful shutdown.
+  - `RegionTask`: Callable wrapper executing a region's evaluation against an immutable `WorldView` snapshot.
+  - `RegionWorker`: Evaluates all resident survivors in a single region in ascending `SurvivorId` order against the immutable `WorldView` snapshot. Operates purely read-only without modifying domain models.
+  - `SeededRandomFactory`: Pure SplitMix64 64-bit mixer deriving deterministic pseudo-random sequences for `(runSeed, regionId, tick)`.
+- **Cross-Region Migration Handoff & Rollback:**
+  - `MigrationHandoff` (`com.afterfall.domain`): Domain helper performing safe survivor transfer between regions and updating location index.
+  - `MigrationCoordinator`: Validates migration proposals (verifies existence, matching source, distinct destination, and duplicate/conflict detection per tick), applies migrations atomically, and provides complete rollback if domain state application fails.
+- **Tick Coordination & Facade Integration:**
+  - `TickCoordinator`: Refactored to coordinate the full 6-phase parallel protocol:
+    1. Reentrancy and overlap check.
+    2. Exactly one immutable `WorldView` snapshot per tick.
+    3. Parallel task execution across the 4-thread `RegionWorkerPool`.
+    4. Worker result validation.
+    5. Deterministic merge (sole-writer phase): sorting by `RegionId` (1..4) and survivor results by `SurvivorId`, assigning global event sequence numbers, executing atomic migration handoff, and applying state changes via `StateChangeApplier.applyBatch()`.
+    6. Advancing `WorldClock`, incrementing world version, and publishing immutable `TickResult`.
+  - `SimulationEngine`: Updated `stop()` method to cleanly shut down coordinator worker threads.
+
+**Tests created & verified**
+- `RegionWorkerPoolTest`: Exactly 4 threads created with expected names, genuine concurrency verified via `CyclicBarrier`, shutdown idempotency, rejected execution after shutdown, and validation of 4 tasks.
+- `SeededRandomFactoryTest`: Identical outputs for identical seed/region/tick inputs, distinct streams for differing regions and ticks, and cross-instance repeatability.
+- `MigrationCoordinatorTest`: Migration handoff between regions, multi-region migrations, rejection of duplicate requests, rejection of identical source/destination, rejection of mismatched sources, and atomic rollback restoring original locations.
+- `DeterministicConcurrencyTest`:
+  - Completion order permutation test: artificially delayed worker completion proves merged result order, survivor action order, and global event sequence numbering are strictly identical and deterministic regardless of thread scheduling.
+  - Multi-tick determinism test: two independent 5-tick simulations from the same initial state and seed yield identical canonical world snapshots across all survivors, needs, vitality, conditions, and inventories.
+  - Worker failure test: injected exception in a worker aborts tick, leaves clock and world version unchanged, rolls back state, and safely releases tick guard for subsequent recovery ticks.
+- `SimulationDeterminismAndEquivalenceTest`:
+  - Single-threaded vs. multithreaded simulation equivalence across 5 ticks.
+  - Different seeds producing appropriately diverging pseudo-random streams.
+  - Zero shared-state mutation by workers during evaluation.
+
+Total project tests passing: **152** (0 failures, 0 errors, 0 skipped).
+
+## Previous completed task: M3 - Correct Single-Threaded Simulation Baseline (2026-11-23)
 Implemented in plain Java across `com.afterfall.simulation`; no framework imports (verified by boundary and suite tests).
 
 **Classes created**

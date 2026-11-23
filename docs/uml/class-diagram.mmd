@@ -577,14 +577,66 @@ classDiagram
         +worldVersion() long
     }
 
+    %% ==========================================
+    %% MULTITHREADED SIMULATION (Implemented M4)
+    %% ==========================================
+
+    class SeededRandomFactory {
+        -long runSeed
+        +createForRegion(regionId, tick) SplittableRandom
+    }
+
+    class RegionWorkerPool {
+        +WORKER_COUNT = 4$
+        -ExecutorService executor
+        +poolSize() int
+        +invokeAll(tasks) List~Future~RegionResult~~
+        +shutdown() void
+        +close() void
+    }
+
+    class RegionTask {
+        <<record, Callable~RegionResult~>>
+        +RegionId regionId
+        +WorldView worldView
+        +long tick
+        +SplittableRandom rng
+        +Function~BehaviorContext, Action~ actionDecider
+        +call() RegionResult
+    }
+
+    class RegionWorker {
+        -RegionId regionId
+        -WorldView worldView
+        -long tick
+        -SplittableRandom rng
+        -Function~BehaviorContext, Action~ actionDecider
+        +evaluate() RegionResult
+    }
+
+    class MigrationCoordinator {
+        -Settlement settlement
+        +applyMigrations(requests) List~AppliedMigration~
+        +rollbackMigrations(applied) void
+    }
+
+    class MigrationHandoff {
+        +executeMigration(settlement, survivor, source, destination)$ void
+    }
+
     class TickCoordinator {
         -World world
         -WorldClock clock
         -Function~BehaviorContext, Action~ actionDecider
+        -RegionWorkerPool workerPool
+        -SeededRandomFactory randomFactory
+        -MigrationCoordinator migrationCoordinator
         -AtomicBoolean tickGuard
         -long worldVersion
         +executeTick() TickResult
         +worldVersion() long
+        +shutdown() void
+        +close() void
     }
 
     class SimulationEngine {
@@ -608,10 +660,17 @@ classDiagram
     SimulationEngine *-- "1" TickCoordinator : delegates
     SimulationEngine o-- "1" WorldView : publishes
     TickCoordinator ..> WorldView : creates
-    TickCoordinator ..> StateChangeApplier : applies
+    TickCoordinator *-- "1" RegionWorkerPool : manages
+    TickCoordinator *-- "1" SeededRandomFactory : generates RNG
+    TickCoordinator *-- "1" MigrationCoordinator : resolves migration
+    TickCoordinator ..> StateChangeApplier : applies batch
     TickCoordinator ..> TickResult : produces
     TickCoordinator o-- "1" World : accesses
     TickCoordinator o-- "1" WorldClock : advances
+    RegionWorkerPool ..> RegionTask : executes
+    RegionTask ..> RegionWorker : delegates
+    RegionWorker ..> RegionResult : produces
+    MigrationCoordinator ..> MigrationHandoff : uses
     RegionResult *-- "0..*" SurvivorActionResult : contains
     RegionResult *-- "0..*" MigrationRequest : contains
     TickResult *-- "0..*" MigrationRequest : preserves
@@ -620,13 +679,9 @@ classDiagram
     WorldView *-- "20..30" SurvivorView : contains
 
     %% ==========================================
-    %% FUTURE COMPONENTS (Planned M4 & M5)
+    %% FUTURE COMPONENTS (Planned M5)
     %% ==========================================
 
-    class RegionWorker {
-        <<planned M4>>
-        +evaluateRegion(regionId) RegionResult
-    }
     class Crisis {
         <<abstract, planned M5>>
         +applyEffects(world) void*
@@ -668,6 +723,5 @@ classDiagram
 
     SurvivorSnapshot ..> Survivor : snapshots
 
-    RegionWorker ..> TickCoordinator : planned M4
     Crisis ..> World : planned M5
     Resource ..> Settlement : planned M5

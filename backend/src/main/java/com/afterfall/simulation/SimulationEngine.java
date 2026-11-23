@@ -112,13 +112,15 @@ public final class SimulationEngine {
 
     /**
      * Stops the simulation engine permanently.
-     * Transitions through STOPPING to STOPPED. Once stopped, the engine cannot resume or execute ticks.
+     * Transitions through STOPPING to STOPPED. Once stopped, the engine cannot resume or execute ticks,
+     * and the underlying worker pool is cleanly closed.
      */
     public synchronized void stop() {
         if (lifecycle == SimulationLifecycle.STOPPED) {
             return; // Already stopped
         }
         this.lifecycle = SimulationLifecycle.STOPPING;
+        coordinator.close();
         this.lifecycle = SimulationLifecycle.STOPPED;
     }
 

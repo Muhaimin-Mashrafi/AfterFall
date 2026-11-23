@@ -213,9 +213,42 @@ Deliberately out of scope: factions, per-phone commands, trading, scoring.
 
 ---
 
-## 9. Visual identity: Quiet Cinematic Minimalism
+## 9. Visual identity and art direction [CHANGED: Monogatari-inspired visual direction]
 
-Unchanged. Deep Charcoal `#171816`, Warm Ivory `#E8E3D9`, Muted Stone `#827C6D`, Faded Rust `#79504A`. Cormorant Garamond titles, Libre Baskerville story headings, Inter body, IBM Plex Mono for Observer records. Narrow reading column, slow fades, no flashing. Imagery is optional in MUST (one calm image per chapter is enough; more is SHOULD). Every visual element must improve storytelling, atmosphere, readability or interaction.
+Approved visual direction (see full canonical document at `docs/desgin/VISUAL_DIRECTION.md`): **Monogatari-Inspired Surreal & Psychologically Charged Presentation** with an unmistakably original AfterFall identity.
+
+### 9.1 Core Artistic Direction
+AfterFall presents a deep, deterministic survival simulation through a surreal, psychologically charged, highly stylized visual language inspired by the experimental cinematography of the *Monogatari Series* and Studio SHAFT, while strictly maintaining its own distinct narrative identity (not a template or reproduction of copyrighted assets/layouts).
+
+**Cardinal Rule:** The simulation, core rules, data, and player decisions remain completely functional, deterministic, and immediately readable. The presentation is unconventional, dramatic, abstract, and cinematic, but never sacrifices gameplay legibility or essential information access.
+
+### 9.2 Visual Principles
+- **Restrained High-Contrast Palette:**
+  - *Crimson Red:* Emphasis, danger, critical events, and selected states.
+  - *Near-Black / Deep Charcoal (`#171816`):* Primary backgrounds and dramatic contrast.
+  - *Warm Ivory / Off-White (`#E8E3D9`):* Primary text and quiet, readable surfaces.
+  - *Muted Greys / Stone (`#827C6D`):* Secondary metadata, inactive UI, and subtle dividers.
+  - *Faded Rust (`#79504A`) & Deliberate Accents:* Applied only when communicating distinct gameplay states or narrative meaning. Negative space and stark contrast prevent uniform oversaturation.
+- **Typography Hierarchy:**
+  - *Impact Typography:* Bold, oversized, high-impact titles, chapter cards, event names, and major state transitions. Vertical arrangements and cropped lettering permitted in non-critical presentation areas.
+  - *Readable Body & Data:* Clean, highly legible typography for gameplay stats, controls, logs, and long-form narrative. Monospace (IBM Plex Mono) reserved for Observer records, terminal diagnostics, and metrics.
+- **Composition & Layout:**
+  - Asymmetrical compositions, strong negative space, geometric color blocks, thin graphic rules, and sharply defined panels over generic centered layouts.
+  - High-impact events may temporarily take over the screen through cinematic fullscreen title cards.
+  - Persistent HUD controls and vital telemetry remain in predictable, accessible locations.
+- **Atmospheric Backgrounds & Imagery:**
+  - Stark architectural silhouettes, empty rooms, geometric patterns, and surreal environmental compositions evoking isolation and psychological tension.
+  - Backgrounds remain strictly subordinate to gameplay data; no visual clutter, particle spam, or generic anime tropes.
+- **Deliberate Motion & Transitions:**
+  - Sharp cuts, controlled wipes, slides, and deliberate typographic entry/exit animations for dramatic moments; restrained motion for routine interactions.
+  - Respects `prefers-reduced-motion`; animations never block user input or delay simulation state progression.
+
+### 9.3 Implementation Schedule (Milestones M10–M13)
+Visual implementation is strictly scheduled for frontend and presentation phases (M10–M13). Core simulation logic (M0–M8) and persistence (M9) remain completely independent of presentation styling:
+- **M10 (Story-First Frontend & Design System Foundation):** Establish design tokens (colors, typography, spacing, panels, buttons), reusable UI component library, and the primary 4-screen layout (Story, People, Recovered Records, Final Recording) alongside operator controls adhering to the Monogatari-inspired visual system.
+- **M11 (Recovered Records, Typography & Visual Polish):** Apply high-impact typography, monospace Observer terminal logs, stylized redactions, and cinematic event takeover cards.
+- **M12 (Integration, Demo Polish & Visual Review):** End-to-end audit against the visual direction quality bar: ensuring surreal atmosphere, psychological tension, and cinematic framing without compromising telemetry readability.
+- **M13 (Feature Freeze & Rehearsals):** Polish transitions, verify responsiveness and reduced-motion modes, and capture fallback video recording under the final visual identity.
 
 ---
 

@@ -6,8 +6,9 @@ sequenceDiagram
     participant Coordinator as TickCoordinator
     participant World as World (Settlement)
     participant View as WorldView
-    participant Behavior as BehaviorSelector
-    participant Action as Action Commands
+    participant Pool as RegionWorkerPool (4 Threads)
+    participant Workers as RegionWorker (1..4)
+    participant Migrator as MigrationCoordinator
     participant Applier as StateChangeApplier
     participant Clock as WorldClock
 
@@ -17,34 +18,54 @@ sequenceDiagram
 
     Engine->>Coordinator: executeTick()
 
-    Note over Coordinator: Phase 1: Overlap Check
+    Note over Coordinator: Phase 1: Overlap Check & State Guard
     Note over Coordinator: Phase 2: Snapshot Creation
     Coordinator->>World: snapshot state
-    Coordinator->>View: snapshot(world, currentTick)
+    Coordinator->>View: snapshot(world, currentTick, currentVersion)
     View-->>Coordinator: immutable WorldView
 
-    Note over Coordinator: Phase 3: Region & Survivor Evaluation
-    loop Region 1 to 4 (RegionId order)
-        loop Survivors in Region (SurvivorId order)
-            Coordinator->>Behavior: selectAction(BehaviorContext)
-            Behavior-->>Coordinator: Action
-            Coordinator->>Action: evaluate(ActionContext)
-            Action-->>Coordinator: ActionResult (proposals)
-        end
+    Note over Coordinator: Phase 3: Parallel Regional Evaluation (4 Workers)
+    Coordinator->>Pool: invokeAll(4 RegionTasks)
+    par Region 1 Worker
+        Pool->>Workers: Region 1 evaluate()
+        Workers-->>Pool: RegionResult 1
+    and Region 2 Worker
+        Pool->>Workers: Region 2 evaluate()
+        Workers-->>Pool: RegionResult 2
+    and Region 3 Worker
+        Pool->>Workers: Region 3 evaluate()
+        Workers-->>Pool: RegionResult 3
+    and Region 4 Worker
+        Pool->>Workers: Region 4 evaluate()
+        Workers-->>Pool: RegionResult 4
     end
+    Pool-->>Coordinator: List~Future~RegionResult~~
 
-    Note over Coordinator: Phase 4 & 5: Batch Validation & Application
-    Coordinator->>Applier: applyBatch(proposalsToApply)
-    alt Validation or Domain Mutation Throws
-        Applier-->>Coordinator: Rollback all modified survivors & throw
+    Note over Coordinator: Phase 4: Validate Worker Results
+
+    Note over Coordinator: Phase 5: Deterministic Merge (Sole Writer)
+    Note over Coordinator: Sort by RegionId (1..4) and SurvivorId
+    Note over Coordinator: Assign Global Event Sequence Numbers
+
+    Coordinator->>Migrator: applyMigrations(allMigrationRequests)
+    alt Migration Fails Validation
+        Migrator-->>Coordinator: Rollback applied & throw
         Coordinator-->>Engine: TickResult (failed, unadvanced)
-    else Successful Application
-        Applier-->>Coordinator: All mutations applied
-        Note over Coordinator: Phase 6: Advance Time & Build Result
-        Coordinator->>Clock: advance()
-        Coordinator-->>Engine: TickResult (success, advanced)
-        Engine->>World: snapshot(world, newTick)
-        Engine-->>Engine: update latestSnapshot
+    else Migrations Applied Successfully
+        Migrator-->>Coordinator: List~AppliedMigration~
+        Coordinator->>Applier: applyBatch(proposalsToApply)
+        alt Domain Mutation Throws
+            Applier-->>Coordinator: Rollback survivors & throw
+            Coordinator->>Migrator: rollbackMigrations(appliedMigrations)
+            Coordinator-->>Engine: TickResult (failed, unadvanced)
+        else Successful Application
+            Applier-->>Coordinator: All mutations applied
+            Note over Coordinator: Phase 6: Advance Time & Build Result
+            Coordinator->>Clock: advance()
+            Coordinator-->>Engine: TickResult (success, advanced)
+            Engine->>World: snapshot(world, newTick, newVersion)
+            Engine-->>Engine: update latestSnapshot
+        end
     end
 
     opt Pause was requested

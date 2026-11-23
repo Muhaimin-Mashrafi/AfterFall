@@ -118,14 +118,17 @@ public class TickCoordinatorSuccessTest {
 
     @Test
     void testResourceClaimsAndMigrationPreserved() {
-        // Custom decider returning an action with ResourceClaim and MigrationRequest
+        // Custom decider returning an action with ResourceClaim and MigrationRequest (to destination != current)
         Function<BehaviorContext, Action> customDecider = context -> new Action() {
             @Override
             public ActionResult evaluate(ActionContext ctx) {
+                // If in Region 1, move to Region 2; if in Region 2, move to Region 3; etc.
+                int nextVal = (ctx.currentRegion().value() % 4) + 1;
+                RegionId target = new RegionId(nextVal);
                 return ActionResult.builder(ActionType.WORK)
                         .workContribution(5)
                         .addResourceClaim(new ResourceClaim(ResourceType.FOOD, 1))
-                        .migrationRequest(RegionId.REGION_2)
+                        .migrationRequest(target)
                         .addEvent(new ProposedEvent("CLAIM_TEST", ctx.survivor().id(), "Claimed food", 1))
                         .build();
             }
@@ -139,7 +142,7 @@ public class TickCoordinatorSuccessTest {
         TickCoordinator coordinator = new TickCoordinator(world, clock, customDecider);
         TickResult result = coordinator.executeTick();
 
-        assertTrue(result.isSuccess());
+        assertTrue(result.isSuccess(), "Tick failure reason: " + result.failureReason());
         assertFalse(result.resourceClaims().isEmpty(), "Resource claims should be preserved");
         assertEquals(4, result.resourceClaims().size());
         assertEquals(ResourceType.FOOD, result.resourceClaims().get(0).resourceType());
@@ -157,7 +160,8 @@ public class TickCoordinatorSuccessTest {
         assertFalse(result.events().isEmpty(), "Events should be collected");
         assertEquals(4, result.events().size());
 
-        // Verify settlements and survivor locations were NOT modified (M4/M5 scope)
-        assertEquals(Optional.of(RegionId.REGION_1), settlement.survivor(new SurvivorId(1)).flatMap(Survivor::location));
+        // In M4, migration handoff is actually performed during Phase 5!
+        // Survivor 1 (initially in Region 1) has migrated to Region 2
+        assertEquals(Optional.of(RegionId.REGION_2), settlement.survivor(new SurvivorId(1)).flatMap(Survivor::location));
     }
 }

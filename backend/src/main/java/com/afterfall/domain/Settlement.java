@@ -136,6 +136,13 @@ public final class Settlement {
         return Optional.ofNullable(survivorRegionIndex.get(Objects.requireNonNull(survivorId, "survivorId")));
     }
 
+    /** Package-private: updates the location index when a survivor is migrated centrally. */
+    void updateSurvivorRegionIndex(SurvivorId survivorId, RegionId newRegionId) {
+        Objects.requireNonNull(survivorId, "survivorId");
+        Objects.requireNonNull(newRegionId, "newRegionId");
+        survivorRegionIndex.put(survivorId, newRegionId);
+    }
+
     /** Returns unmodifiable set of SurvivorIds in the given region. */
     public Set<SurvivorId> survivorsIn(RegionId regionId) {
         Region region = regions.get(Objects.requireNonNull(regionId, "regionId"));

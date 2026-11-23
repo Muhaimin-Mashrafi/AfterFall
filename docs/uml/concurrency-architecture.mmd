@@ -1,0 +1,62 @@
+flowchart TD
+    subgraph SharedMemory["Immutable Shared Memory (Read-Only)"]
+        WV["WorldView (Immutable Snapshot)"]
+        RV1["RegionView 1"]
+        RV2["RegionView 2"]
+        RV3["RegionView 3"]
+        RV4["RegionView 4"]
+        WV --- RV1
+        WV --- RV2
+        WV --- RV3
+        WV --- RV4
+    end
+
+    subgraph ThreadPool["RegionWorkerPool (4 Dedicated Threads)"]
+        W1["Thread: afterfall-region-1<br/>RegionTask 1"]
+        W2["Thread: afterfall-region-2<br/>RegionTask 2"]
+        W3["Thread: afterfall-region-3<br/>RegionTask 3"]
+        W4["Thread: afterfall-region-4<br/>RegionTask 4"]
+    end
+
+    subgraph IndependentRNG["SeededRandomFactory (SplitMix64)"]
+        RNG1["SplittableRandom (Region 1, Tick T)"]
+        RNG2["SplittableRandom (Region 2, Tick T)"]
+        RNG3["SplittableRandom (Region 3, Tick T)"]
+        RNG4["SplittableRandom (Region 4, Tick T)"]
+    end
+
+    subgraph WorkerOutputs["Isolated Worker Outputs (Immutable)"]
+        RO1["RegionResult 1<br/>(Ordered Survivor Results & Migrations)"]
+        RO2["RegionResult 2<br/>(Ordered Survivor Results & Migrations)"]
+        RO3["RegionResult 3<br/>(Ordered Survivor Results & Migrations)"]
+        RO4["RegionResult 4<br/>(Ordered Survivor Results & Migrations)"]
+    end
+
+    subgraph Coordinator["TickCoordinator (Sole Writer / Deterministic Merge)"]
+        M1["1. Deterministic Result Sort (RegionId 1..4)"]
+        M2["2. Global Event Sequence Numbering (1..N)"]
+        M3["3. MigrationCoordinator: Validate & Handoff"]
+        M4["4. StateChangeApplier: Atomic Batch Apply"]
+        M5["5. Advance Clock & Publish TickResult"]
+        M1 --> M2 --> M3 --> M4 --> M5
+    end
+
+    RV1 -.-> W1
+    RV2 -.-> W2
+    RV3 -.-> W3
+    RV4 -.-> W4
+
+    RNG1 --> W1
+    RNG2 --> W2
+    RNG3 --> W3
+    RNG4 --> W4
+
+    W1 --> RO1
+    W2 --> RO2
+    W3 --> RO3
+    W4 --> RO4
+
+    RO1 --> M1
+    RO2 --> M1
+    RO3 --> M1
+    RO4 --> M1

@@ -1,7 +1,6 @@
 package com.afterfall.simulation;
 
 import com.afterfall.action.Action;
-import com.afterfall.action.ActionContext;
 import com.afterfall.action.ActionResult;
 import com.afterfall.action.ProposedEvent;
 import com.afterfall.action.ResourceClaim;
@@ -9,65 +8,101 @@ import com.afterfall.behavior.BehaviorContext;
 import com.afterfall.behavior.BehaviorSelector;
 import com.afterfall.domain.*;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.TreeSet;
+import java.util.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
 /**
- * Coordinates one deterministic simulation tick across all four regions.
+ * Coordinates one deterministic simulation tick using the M4 four-worker parallel architecture.
  *
  * <p>Six-phase protocol:
  * <ol>
- *   <li>Validate inputs; prevent overlapping ticks via atomic guard.</li>
- *   <li>Capture exactly one immutable {@link WorldView} for the tick.</li>
- *   <li>Evaluate regions in {@link RegionId} order; survivors in {@link SurvivorId} order.</li>
- *   <li>Validate every proposal before applying any mutation.</li>
- *   <li>Apply accepted proposals via {@link StateChangeApplier#applyBatch}.</li>
- *   <li>Advance {@link WorldClock}, increment explicit world version, and assemble {@link TickResult}.</li>
+ *   <li><b>Phase 1: Validate</b> — Check reentrancy guard, capture tick and version, validate membership consistency.</li>
+ *   <li><b>Phase 2: Snapshot</b> — Create exactly one immutable {@link WorldView} instance.</li>
+ *   <li><b>Phase 3: Parallel Evaluation</b> — Submit exactly 4 {@link RegionTask}s to {@link RegionWorkerPool}.</li>
+ *   <li><b>Phase 4: Validate Results</b> — Check that all 4 results completed without error, matching expected regions.</li>
+ *   <li><b>Phase 5: Deterministic Merge</b> — Sort results by {@link RegionId}, survivors by {@link SurvivorId}.
+ *       Assign global event sequence numbers, resolve cross-region migrations via {@link MigrationCoordinator},
+ *       and atomically apply state proposals via {@link StateChangeApplier#applyBatch}.</li>
+ *   <li><b>Phase 6: Complete</b> — Advance {@link WorldClock}, increment version, build {@link TickResult},
+ *       and release tick guard.</li>
  * </ol>
- *
- * <p>No threads, ExecutorService, or CompletableFuture are used.
- * ResourceClaims and migration requests are preserved in the result but NOT resolved.
  */
 public final class TickCoordinator {
+
+    public static final long DEFAULT_RUN_SEED = 42L;
 
     private final World world;
     private final WorldClock clock;
     private final Function<BehaviorContext, Action> actionDecider;
+    private final RegionWorkerPool workerPool;
+    private final boolean ownsWorkerPool;
+    private final SeededRandomFactory randomFactory;
+    private final MigrationCoordinator migrationCoordinator;
     private final AtomicBoolean tickGuard = new AtomicBoolean(false);
     private long worldVersion = 0L;
+    private long nextGlobalEventSequence = 1L;
 
     public TickCoordinator(World world, WorldClock clock) {
         this(world, clock, new BehaviorSelector());
     }
 
+    public TickCoordinator(World world, WorldClock clock, long runSeed) {
+        this(world, clock, new BehaviorSelector(), runSeed);
+    }
+
     public TickCoordinator(World world, WorldClock clock, BehaviorSelector behaviorSelector) {
-        this.world = Objects.requireNonNull(world, "world");
-        this.clock = Objects.requireNonNull(clock, "clock");
-        Objects.requireNonNull(behaviorSelector, "behaviorSelector");
-        this.actionDecider = behaviorSelector::selectAction;
+        this(world, clock, Objects.requireNonNull(behaviorSelector, "behaviorSelector")::selectAction);
+    }
+
+    public TickCoordinator(World world, WorldClock clock, BehaviorSelector behaviorSelector, long runSeed) {
+        this(world, clock, Objects.requireNonNull(behaviorSelector, "behaviorSelector")::selectAction,
+                new RegionWorkerPool(), true, new SeededRandomFactory(runSeed));
     }
 
     public TickCoordinator(World world, WorldClock clock, Function<BehaviorContext, Action> actionDecider) {
+        this(world, clock, actionDecider, new RegionWorkerPool(), true, new SeededRandomFactory(DEFAULT_RUN_SEED));
+    }
+
+    public TickCoordinator(World world, WorldClock clock, Function<BehaviorContext, Action> actionDecider, long runSeed) {
+        this(world, clock, actionDecider, new RegionWorkerPool(), true, new SeededRandomFactory(runSeed));
+    }
+
+    public TickCoordinator(World world,
+                           WorldClock clock,
+                           Function<BehaviorContext, Action> actionDecider,
+                           RegionWorkerPool workerPool,
+                           boolean ownsWorkerPool,
+                           SeededRandomFactory randomFactory) {
         this.world = Objects.requireNonNull(world, "world");
         this.clock = Objects.requireNonNull(clock, "clock");
         this.actionDecider = Objects.requireNonNull(actionDecider, "actionDecider");
+        this.workerPool = Objects.requireNonNull(workerPool, "workerPool");
+        this.ownsWorkerPool = ownsWorkerPool;
+        this.randomFactory = Objects.requireNonNull(randomFactory, "randomFactory");
+        this.migrationCoordinator = new MigrationCoordinator(world.settlement());
     }
 
     public long worldVersion() {
         return worldVersion;
     }
 
+    public RegionWorkerPool workerPool() {
+        return workerPool;
+    }
+
+    public SeededRandomFactory randomFactory() {
+        return randomFactory;
+    }
+
     /**
-     * Execute one complete simulation tick.
+     * Executes one complete deterministic simulation tick using 4 parallel region workers.
      *
-     * @return an immutable {@link TickResult} describing what occurred.
-     * @throws IllegalStateException if a tick is already in progress.
+     * @return an immutable {@link TickResult}
+     * @throws IllegalStateException if a tick is already in progress
      */
     public TickResult executeTick() {
         // Phase 1: validate / guard against overlapping ticks atomically
@@ -86,112 +121,120 @@ public final class TickCoordinator {
         long currentTick = clock.tick();
         long currentVersion = this.worldVersion;
 
-        // Phase 2: build one immutable WorldView for the entire tick
-        WorldView worldView = WorldView.snapshot(world, currentTick, currentVersion);
-
-        // Membership Consistency Validation: Every resident survivor in each region must exist in Settlement and WorldView
+        // Phase 1 validation: verify all resident survivors in each region exist in settlement
         for (RegionId regionId : RegionId.ALL) {
-            RegionView regionView = worldView.regions().get(regionId);
-            if (regionView != null) {
-                for (SurvivorId residentId : regionView.survivorIds()) {
-                    if (settlement.survivor(residentId).isEmpty() || !worldView.survivors().containsKey(residentId)) {
-                        return TickResult.builder(currentTick, currentVersion)
-                                .failed("Membership inconsistency: survivor " + residentId + " in region " + regionId + " roster not found in Settlement/WorldView")
-                                .build();
-                    }
+            Optional<Region> rOpt = settlement.region(regionId);
+            if (rOpt.isEmpty()) {
+                return TickResult.builder(currentTick, currentVersion)
+                        .failed("Missing required region: " + regionId)
+                        .build();
+            }
+            Region region = rOpt.get();
+            for (SurvivorId residentId : region.survivorIds()) {
+                if (settlement.survivor(residentId).isEmpty()) {
+                    return TickResult.builder(currentTick, currentVersion)
+                            .failed("Membership inconsistency: survivor " + residentId + " in region " + regionId + " roster not found in Settlement/WorldView")
+                            .build();
                 }
             }
         }
 
-        // Phase 3: evaluate regions in RegionId order, survivors in SurvivorId order
-        List<RegionResult> regionResults = new ArrayList<>();
+        // Phase 2: build one immutable WorldView for the entire tick
+        WorldView worldView = WorldView.snapshot(world, currentTick, currentVersion);
+
+        // Phase 3: Parallel regional evaluation
+        List<RegionTask> tasks = new ArrayList<>(RegionWorkerPool.WORKER_COUNT);
+        for (RegionId regionId : RegionId.ALL) {
+            SplittableRandom rng = randomFactory.createForRegion(regionId, currentTick);
+            tasks.add(new RegionTask(regionId, worldView, currentTick, rng, actionDecider));
+        }
+
+        List<Future<RegionResult>> futures;
+        try {
+            futures = workerPool.invokeAll(tasks, 5, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return TickResult.builder(currentTick, currentVersion)
+                    .failed("Tick execution interrupted: " + e.getMessage())
+                    .build();
+        }
+
+        // Phase 4: Validate worker results
+        List<RegionResult> rawResults = new ArrayList<>();
+        for (Future<RegionResult> f : futures) {
+            try {
+                if (f.isCancelled()) {
+                    return TickResult.builder(currentTick, currentVersion)
+                            .failed("Region worker task was cancelled")
+                            .build();
+                }
+                rawResults.add(f.get());
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return TickResult.builder(currentTick, currentVersion)
+                        .failed("Interrupted while collecting region worker results: " + e.getMessage())
+                        .build();
+            } catch (ExecutionException e) {
+                return TickResult.builder(currentTick, currentVersion)
+                        .failed("Region worker evaluation failed: " + e.getCause().getMessage())
+                        .build();
+            }
+        }
+
+        if (rawResults.size() != RegionWorkerPool.WORKER_COUNT) {
+            return TickResult.builder(currentTick, currentVersion)
+                    .failed("Expected " + RegionWorkerPool.WORKER_COUNT + " region results, got " + rawResults.size())
+                    .build();
+        }
+
+        // Phase 5: Deterministic Merge
+        // 5a. Explicit canonical ordering by RegionId
+        rawResults.sort(Comparator.comparing(RegionResult::regionId));
+
+        List<RegionResult> orderedRegionResults = new ArrayList<>();
         List<ProposedEvent> allEvents = new ArrayList<>();
         List<ResourceClaim> allClaims = new ArrayList<>();
         List<MigrationRequest> allMigrationRequests = new ArrayList<>();
-
         LinkedHashMap<Survivor, ActionResult> proposalsToApply = new LinkedHashMap<>();
 
-        int sequence = 0;
+        int survivorsProcessed = 0;
         int accepted = 0;
         int rejected = 0;
-        int survivorsProcessed = 0;
+        Set<SurvivorId> evaluatedSurvivors = new HashSet<>();
 
-        for (RegionId regionId : RegionId.ALL) {
-            RegionView regionView = worldView.regions().get(regionId);
-            if (regionView == null) {
-                continue;
-            }
+        for (RegionResult rr : rawResults) {
+            RegionId regionId = rr.regionId();
+            List<SurvivorActionResult> sortedSurvivorResults = new ArrayList<>(rr.survivorResults());
+            // Sort survivors by SurvivorId
+            sortedSurvivorResults.sort(Comparator.comparing(SurvivorActionResult::survivorId));
 
-            List<SurvivorActionResult> survivorResults = new ArrayList<>();
-            List<MigrationRequest> regionMigrationRequests = new ArrayList<>();
+            for (SurvivorActionResult sar : sortedSurvivorResults) {
+                SurvivorId sId = sar.survivorId();
+                if (!evaluatedSurvivors.add(sId)) {
+                    return TickResult.builder(currentTick, currentVersion)
+                            .failed("Duplicate survivor evaluation detected: " + sId)
+                            .build();
+                }
 
-            // Sort survivor IDs deterministically
-            List<SurvivorId> orderedSurvivorIds = new ArrayList<>(new TreeSet<>(regionView.survivorIds()));
-
-            for (SurvivorId survivorId : orderedSurvivorIds) {
-                Optional<Survivor> liveSurvivorOpt = settlement.survivor(survivorId);
+                Optional<Survivor> liveSurvivorOpt = settlement.survivor(sId);
                 if (liveSurvivorOpt.isEmpty()) {
                     return TickResult.builder(currentTick, currentVersion)
-                            .failed("Membership inconsistency during evaluation: survivor " + survivorId + " missing from settlement")
+                            .failed("Survivor " + sId + " missing from settlement")
                             .build();
                 }
                 Survivor liveSurvivor = liveSurvivorOpt.get();
 
-                SurvivorView survivorView = worldView.survivors().get(survivorId);
-                if (survivorView == null) {
-                    return TickResult.builder(currentTick, currentVersion)
-                            .failed("Membership inconsistency during evaluation: survivor " + survivorId + " missing from WorldView")
-                            .build();
+                survivorsProcessed++;
+                ActionResult result = sar.actionResult();
+
+                // Assign global sequential event numbering during canonical merge
+                for (ProposedEvent pe : result.eventProposals()) {
+                    allEvents.add(pe);
+                    nextGlobalEventSequence++;
                 }
 
-                // Build SurvivorSnapshot from the immutable view
-                SurvivorSnapshot snapshot = new SurvivorSnapshot(
-                        survivorView.id(),
-                        survivorView.name(),
-                        survivorView.personality(),
-                        survivorView.profession(),
-                        survivorView.needLevels(),
-                        survivorView.vitality(),
-                        survivorView.condition(),
-                        survivorView.inventoryQuantities(),
-                        survivorView.inventoryCapacity(),
-                        survivorView.location(),
-                        survivorView.status()
-                );
-
-                survivorsProcessed++;
-
-                BehaviorContext behaviorContext = BehaviorContext.of(
-                        snapshot,
-                        regionId,
-                        false,  // shared food: M5, never grant free food
-                        false   // shared medicine: M5, never grant free medicine
-                );
-
-                Action action = actionDecider.apply(behaviorContext);
-
-                ActionContext actionContext = new ActionContext(
-                        snapshot,
-                        regionId,
-                        false,
-                        false
-                );
-
-                ActionResult result = action.evaluate(actionContext);
-
-                sequence++;
-                SurvivorActionResult sar = new SurvivorActionResult(survivorId, sequence, result);
-                survivorResults.add(sar);
-
-                allEvents.addAll(result.eventProposals());
+                // Preserve resource claims
                 allClaims.addAll(result.resourceClaims());
-
-                final int actionSeq = sequence;
-                result.migrationRequest().ifPresent(dest -> {
-                    MigrationRequest req = new MigrationRequest(survivorId, regionId, dest, actionSeq);
-                    regionMigrationRequests.add(req);
-                    allMigrationRequests.add(req);
-                });
 
                 if (result.isSuccess()) {
                     accepted++;
@@ -201,36 +244,55 @@ public final class TickCoordinator {
                 }
             }
 
-            regionResults.add(new RegionResult(regionId, List.copyOf(survivorResults), List.copyOf(regionMigrationRequests)));
+            allMigrationRequests.addAll(rr.migrationRequests());
+            orderedRegionResults.add(new RegionResult(regionId, sortedSurvivorResults, rr.migrationRequests()));
         }
 
-        // Phase 4 & 5: validate and apply proposals atomically via applyBatch
+        // 5b. Resolve and execute validated migration requests at tick boundary
+        List<MigrationCoordinator.AppliedMigration> appliedMigrations;
         try {
-            if (!proposalsToApply.isEmpty()) {
-                StateChangeApplier.applyBatch(proposalsToApply);
-            }
+            appliedMigrations = migrationCoordinator.applyMigrations(allMigrationRequests);
         } catch (RuntimeException e) {
-            // Application failed – clock and worldVersion must NOT advance; return failure result
             return TickResult.builder(currentTick, currentVersion)
-                    .regionResults(regionResults)
+                    .regionResults(orderedRegionResults)
                     .events(allEvents)
                     .resourceClaims(allClaims)
                     .migrationRequests(allMigrationRequests)
                     .survivorsProcessed(survivorsProcessed)
                     .actionsAccepted(accepted)
                     .actionsRejected(rejected)
-                    .failed("Batch application failed: " + e.getMessage())
+                    .failed("Migration validation/handoff failed: " + e.getMessage())
                     .build();
         }
 
-        // Phase 6: advance clock and increment worldVersion ONLY on success
+        // 5c. Atomically apply domain state proposals via StateChangeApplier.applyBatch
+        try {
+            if (!proposalsToApply.isEmpty()) {
+                StateChangeApplier.applyBatch(proposalsToApply);
+            }
+        } catch (RuntimeException e) {
+            // Roll back migrations on domain state application failure
+            migrationCoordinator.rollbackMigrations(appliedMigrations);
+            return TickResult.builder(currentTick, currentVersion)
+                    .regionResults(orderedRegionResults)
+                    .events(allEvents)
+                    .resourceClaims(allClaims)
+                    .migrationRequests(allMigrationRequests)
+                    .survivorsProcessed(survivorsProcessed)
+                    .actionsAccepted(accepted)
+                    .actionsRejected(rejected)
+                    .failed("Batch state application failed: " + e.getMessage())
+                    .build();
+        }
+
+        // Phase 6: Advance time and increment version
         clock.advance();
         this.worldVersion++;
         long newTick = clock.tick();
         long newVersion = this.worldVersion;
 
         return TickResult.builder(newTick, newVersion)
-                .regionResults(regionResults)
+                .regionResults(orderedRegionResults)
                 .events(allEvents)
                 .resourceClaims(allClaims)
                 .migrationRequests(allMigrationRequests)
@@ -238,5 +300,21 @@ public final class TickCoordinator {
                 .actionsAccepted(accepted)
                 .actionsRejected(rejected)
                 .build();
+    }
+
+    /**
+     * Cleans up resources owned by this coordinator.
+     */
+    public void close() {
+        if (ownsWorkerPool) {
+            workerPool.close();
+        }
+    }
+
+    /**
+     * Alias for close() providing standard shutdown semantics.
+     */
+    public void shutdown() {
+        close();
     }
 }

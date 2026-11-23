@@ -679,22 +679,92 @@ classDiagram
     WorldView *-- "20..30" SurvivorView : contains
 
     %% ==========================================
-    %% FUTURE COMPONENTS (Planned M5)
+    %% M5: RESOURCES & CRISES (Implemented)
     %% ==========================================
 
-    class Crisis {
-        <<abstract, planned M5>>
-        +applyEffects(world) void*
-    }
     class Resource {
-        <<planned M5>>
-        +consume(amount) void
+        -ResourceType type
+        -int quantity
+        -ReentrantLock lock
+        +type() ResourceType
+        +quantity() int
+        +add(amount) void
+        +consume(amount) int
+        +isAvailable() boolean
+    }
+
+    class ResourceStock {
+        -Map~ResourceType, Resource~ resources
+        +defaultStock() ResourceStock$
+        +resource(type) Resource
+        +quantity(type) int
+        +isAvailable(type) boolean
+    }
+
+    class Crisis {
+        <<abstract>>
+        -String name
+        -int activeTicks
+        -boolean active
+        +name() String
+        +isActive() boolean
+        +activeTicks() int
+        +advance(settlement, stock) List~CrisisEffect~
+        #checkTrigger(settlement, stock) boolean*
+        #checkResolution(settlement, stock) boolean
+        #collectEffects(settlement, stock) List~CrisisEffect~*
+    }
+
+    class FamineCrisis {
+        -int threshold
+        +DEFAULT_THRESHOLD int$
+        +threshold() int
+        #checkTrigger(settlement, stock) boolean
+        #checkResolution(settlement, stock) boolean
+        #collectEffects(settlement, stock) List~CrisisEffect~
+    }
+
+    class DiseaseOutbreak {
+        -int illThreshold
+        +DEFAULT_ILL_THRESHOLD int$
+        +illThreshold() int
+        #checkTrigger(settlement, stock) boolean
+        #checkResolution(settlement, stock) boolean
+        #collectEffects(settlement, stock) List~CrisisEffect~
+    }
+
+    class CrisisEffect {
+        -SurvivorId targetId
+        -Map~Need, Integer~ needDeltas
+        -int vitalityDelta
+        -Optional~HealthCondition~ newCondition
+        +targetId() SurvivorId
+        +needDeltas() Map
+        +vitalityDelta() int
+        +newCondition() Optional
+        +forSurvivor(targetId) Builder$
+    }
+
+    class CrisisManager {
+        -List~Crisis~ crises
+        +advanceAll(settlement, stock) List~CrisisEffect~
+        +crises() List~Crisis~
+        +hasActiveCrisis() boolean
     }
 
     %% Core Relationships
     World *-- "1" Settlement : contains
     Settlement *-- "4" Region : manages
+    Settlement *-- "1" ResourceStock : shared pool
     Settlement o-- "20..30" Survivor : registers
+    ResourceStock *-- "3" Resource : holds
+    Resource --> ResourceType
+    Crisis <|-- FamineCrisis : extends (Template Method)
+    Crisis <|-- DiseaseOutbreak : extends (Template Method)
+    Crisis ..> CrisisEffect : produces
+    CrisisManager *-- "2" Crisis : manages
+    CrisisManager ..> CrisisEffect : aggregates
+    TickCoordinator *-- "1" CrisisManager : coordinates
     Region o-- "0..*" SurvivorId : references
     Survivor *-- "1" SurvivorId : identity
     Survivor *-- "1" Personality : composition
@@ -722,6 +792,3 @@ classDiagram
     InitialPopulation ..> PopulationConfig : uses
 
     SurvivorSnapshot ..> Survivor : snapshots
-
-    Crisis ..> World : planned M5
-    Resource ..> Settlement : planned M5

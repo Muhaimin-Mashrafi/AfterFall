@@ -95,8 +95,8 @@ public final class RegionWorker {
             BehaviorContext behaviorContext = BehaviorContext.withCandidates(
                     snapshot,
                     regionId,
-                    false, // shared food not yet resolved in M4
-                    false, // shared medicine not yet resolved in M4
+                    worldView.isFoodAvailable(),
+                    worldView.isMedicineAvailable(),
                     candidates
             );
 
@@ -105,8 +105,8 @@ public final class RegionWorker {
             ActionContext actionContext = new ActionContext(
                     snapshot,
                     regionId,
-                    false,
-                    false
+                    worldView.isFoodAvailable(),
+                    worldView.isMedicineAvailable()
             );
 
             ActionResult result = action.evaluate(actionContext);

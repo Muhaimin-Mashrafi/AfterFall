@@ -5,8 +5,8 @@ This file is the handoff point between Claude Code sessions. Update it after eve
 ## Current status
 - Project: AfterFall - The Last Days of Humanity
 - Canonical specification: `docs/blueprint/AfterFall-Blueprint-Revised-Solo.md`
-- Current milestone: M4 complete (Deterministic Multithreading: Four Region Workers, RegionWorkerPool, SeededRandomFactory, MigrationCoordinator, atomic migration handoff & rollback, concurrency & determinism tests, and architecture UML; awaiting independent approval)
-- Application code: Spring Boot skeleton, domain models, autonomous behaviors, action commands, 4-worker multithreaded simulation engine, deterministic merge, batch rollback, and lifecycle state management
+- Current milestone: M5 complete (Resources & Famine/Disease Crises: Thread-safe Resource invariant, ResourceStock settlement pool, Template Method Crisis hierarchy, FamineCrisis, DiseaseOutbreak, CrisisManager, sole-writer integration in TickCoordinator, and 192 passing tests). Awaiting review to proceed to M6.
+- Application code: Spring Boot skeleton, domain models, autonomous behaviors, action commands, 4-worker multithreaded simulation engine, deterministic merge, batch rollback, lifecycle state management, resource pools, and crisis simulation
 - Last updated: 2026-11-23
 
 ## Environment (user-reported)
@@ -39,8 +39,8 @@ This file is the handoff point between Claude Code sessions. Update it after eve
 | M1 | Domain model and OOP pillars | Complete (Sessions 1 & 2 + final-review corrections; 2026-11-20) |
 | M2 | Behaviours, actions and core patterns | Complete (2026-11-20) |
 | M3 | Correct single-threaded simulation baseline | Complete (2026-11-23) |
-| M4 | Four workers, deterministic merge, RNG, migration and concurrency | Complete (2026-11-23; awaiting independent approval) |
-| M5 | Resources and Famine/Disease crises | Not started |
+| M4 | Four workers, deterministic merge, RNG, migration and concurrency | Complete (2026-11-23) |
+| M5 | Resources and Famine/Disease crises | Complete (2026-11-23) |
 | M6 | ObserverAI with four MUST policies | Not started |
 | M7 | EventBus and Narrator with 40+ templates | Not started |
 | M8 | Choices, consequences and four threshold-driven chapters | Not started |
@@ -80,10 +80,38 @@ This file is the handoff point between Claude Code sessions. Update it after eve
 9. Cross-region relationship changes are returned as deltas and merged by TickCoordinator.
 
 ## Open items
-- None. M0, M1, M2, M3, and M4 completed and verified (152 passing tests).
-- Awaiting user approval on M4 completion to proceed to M5 (Resources and Famine/Disease crises).
+- None. M0 through M5 completed and verified (192 passing tests).
+- Awaiting user approval on M5 completion to proceed to M6 (ObserverAI with four MUST policies).
 
-## Latest completed task: M4 - Deterministic Multithreading: Four Region Workers (2026-11-23)
+## Latest completed task: M5 - Resources and Famine/Disease Crises (2026-11-23)
+Implemented in plain Java across `com.afterfall.domain` and `com.afterfall.simulation`; no framework imports (verified by boundary and suite tests).
+
+**Classes created & enhanced**
+- **Resources & Stock Pool (`com.afterfall.domain`):**
+  - `Resource`: Encapsulates a resource type and non-negative quantity invariant protected by `ReentrantLock` for concurrency safety and race-condition compliance.
+  - `ResourceStock`: Settlement aggregate holding shared resources (`FOOD`, `WATER`, `MEDICINE`).
+  - `Settlement`: Enhanced to hold and expose the shared `ResourceStock` pool.
+- **Crisis Architecture (Template Method Pattern, `com.afterfall.domain`):**
+  - `Crisis` (abstract base): Defines the `final List<CrisisEffect> advance(Settlement, ResourceStock)` template method orchestrating triggers, duration tracking, resolution, and effect collection, fulfilling Open/Closed and Liskov Substitution principles.
+  - `FamineCrisis`: Subclass triggering when food $\le$ threshold; applies food need penalties and vitality reduction to alive survivors.
+  - `DiseaseOutbreak`: Subclass triggering when ill survivor count $\ge$ threshold; spreads to healthy survivors with low safety and applies vitality drain.
+  - `CrisisEffect`: Immutable proposal record/builder for crisis-driven state adjustments.
+- **Simulation Integration (`com.afterfall.simulation`):**
+  - `CrisisManager`: Manages the active crises list and coordinates their advancement.
+  - `WorldView`: Updated to capture an immutable snapshot of resource quantities and expose `isFoodAvailable()` / `isMedicineAvailable()`.
+  - `RegionWorker`: Injects resource availability into `BehaviorContext` and `ActionContext`.
+  - `TickCoordinator`: Implements deterministic Phase 5d claim resolution and Phase 5e crisis effect application by the coordinator as the sole writer.
+
+**Tests created & verified**
+- `ResourceTest`: 10 tests verifying add/consume, non-negative invariants, and a 20-thread concurrent race-condition test.
+- `ResourceStockTest`: 5 tests covering defaults, custom quantities, availability, and item consumption.
+- `FamineCrisisTest`: 8 tests covering trigger thresholds, duration, resolution upon restocking, and dead survivor filtering.
+- `DiseaseOutbreakTest`: 8 tests covering threshold trigger, safety-based contagion spread, resolution when cured, and vitality drain.
+- `ResourceAndCrisisIntegrationTest`: 9 integration tests verifying resource snapshotting in `WorldView`, deterministic claim consumption during tick merge, and crisis effect execution under `TickCoordinator`.
+
+Total project tests passing: **192** (0 failures, 0 errors, 0 skipped).
+
+## Previous completed task: M4 - Deterministic Multithreading: Four Region Workers (2026-11-23)
 Implemented in plain Java across `com.afterfall.simulation` and `com.afterfall.domain`; no framework imports (verified by boundary and suite tests).
 
 **Classes created & enhanced**

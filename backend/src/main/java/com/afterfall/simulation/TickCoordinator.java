@@ -42,6 +42,7 @@ public final class TickCoordinator {
     private final boolean ownsWorkerPool;
     private final SeededRandomFactory randomFactory;
     private final MigrationCoordinator migrationCoordinator;
+    private final CrisisManager crisisManager;
     private final AtomicBoolean tickGuard = new AtomicBoolean(false);
     private long worldVersion = 0L;
     private long nextGlobalEventSequence = 1L;
@@ -77,6 +78,16 @@ public final class TickCoordinator {
                            RegionWorkerPool workerPool,
                            boolean ownsWorkerPool,
                            SeededRandomFactory randomFactory) {
+        this(world, clock, actionDecider, workerPool, ownsWorkerPool, randomFactory, new CrisisManager());
+    }
+
+    public TickCoordinator(World world,
+                           WorldClock clock,
+                           Function<BehaviorContext, Action> actionDecider,
+                           RegionWorkerPool workerPool,
+                           boolean ownsWorkerPool,
+                           SeededRandomFactory randomFactory,
+                           CrisisManager crisisManager) {
         this.world = Objects.requireNonNull(world, "world");
         this.clock = Objects.requireNonNull(clock, "clock");
         this.actionDecider = Objects.requireNonNull(actionDecider, "actionDecider");
@@ -84,6 +95,7 @@ public final class TickCoordinator {
         this.ownsWorkerPool = ownsWorkerPool;
         this.randomFactory = Objects.requireNonNull(randomFactory, "randomFactory");
         this.migrationCoordinator = new MigrationCoordinator(world.settlement());
+        this.crisisManager = Objects.requireNonNull(crisisManager, "crisisManager");
     }
 
     public long worldVersion() {
@@ -285,6 +297,26 @@ public final class TickCoordinator {
                     .build();
         }
 
+        // 5d. Resolve resource claims against settlement stock in deterministic (region, survivor) order
+        ResourceStock stock = settlement.resourceStock();
+        for (ResourceClaim claim : allClaims) {
+            stock.resource(mapToResourceType(claim.resourceType())).consume(claim.quantity());
+        }
+
+        // 5e. Advance crises and apply their effects as the sole writer
+        List<CrisisEffect> crisisEffects = crisisManager.advanceAll(settlement, stock);
+        for (CrisisEffect effect : crisisEffects) {
+            settlement.survivor(effect.targetId()).ifPresent(survivor -> {
+                for (Map.Entry<Need, Integer> e : effect.needDeltas().entrySet()) {
+                    survivor.needs().adjust(e.getKey(), e.getValue());
+                }
+                if (effect.vitalityDelta() != 0) {
+                    survivor.health().adjustVitality(effect.vitalityDelta());
+                }
+                effect.newCondition().ifPresent(survivor.health()::setCondition);
+            });
+        }
+
         // Phase 6: Advance time and increment version
         clock.advance();
         this.worldVersion++;
@@ -316,5 +348,17 @@ public final class TickCoordinator {
      */
     public void shutdown() {
         close();
+    }
+
+    public CrisisManager crisisManager() {
+        return crisisManager;
+    }
+
+    /**
+     * Maps a ResourceClaim resource type to domain ResourceType.
+     * Both share the same domain type; this call is a checked identity bridge for readability.
+     */
+    private static ResourceType mapToResourceType(ResourceType resourceType) {
+        return resourceType;
     }
 }

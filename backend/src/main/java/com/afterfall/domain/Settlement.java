@@ -28,17 +28,23 @@ public final class Settlement {
     private final Map<RegionId, Region> regions = new TreeMap<>();
     private final Map<SurvivorId, Survivor> survivors = new TreeMap<>();
     private final Map<SurvivorId, RegionId> survivorRegionIndex = new HashMap<>();
+    private final ResourceStock resourceStock;
 
     public Settlement(String name) {
-        this(name, defaultRegions());
+        this(name, defaultRegions(), ResourceStock.defaultStock());
     }
 
     public Settlement(String name, Collection<Region> initialRegions) {
+        this(name, initialRegions, ResourceStock.defaultStock());
+    }
+
+    public Settlement(String name, Collection<Region> initialRegions, ResourceStock resourceStock) {
         if (name == null || name.isBlank()) {
             throw new IllegalArgumentException("name must not be blank");
         }
         this.name = name.strip();
         Objects.requireNonNull(initialRegions, "initialRegions");
+        this.resourceStock = Objects.requireNonNull(resourceStock, "resourceStock");
 
         for (Region r : initialRegions) {
             Objects.requireNonNull(r, "region");
@@ -57,6 +63,11 @@ public final class Settlement {
                 throw new IllegalArgumentException("Missing required region: " + required);
             }
         }
+    }
+
+    /** The settlement's shared resource pool. */
+    public ResourceStock resourceStock() {
+        return resourceStock;
     }
 
     public static Collection<Region> defaultRegions() {

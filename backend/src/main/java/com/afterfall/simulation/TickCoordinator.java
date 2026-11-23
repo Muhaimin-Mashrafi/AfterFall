@@ -7,6 +7,9 @@ import com.afterfall.action.ResourceClaim;
 import com.afterfall.behavior.BehaviorContext;
 import com.afterfall.behavior.BehaviorSelector;
 import com.afterfall.domain.*;
+import com.afterfall.events.EventBus;
+import com.afterfall.events.EventSeverity;
+import com.afterfall.events.SimEvent;
 import com.afterfall.observer.Intervention;
 import com.afterfall.observer.InterventionRecord;
 import com.afterfall.observer.InterventionStatus;
@@ -49,6 +52,7 @@ public final class TickCoordinator {
     private final MigrationCoordinator migrationCoordinator;
     private final CrisisManager crisisManager;
     private final ObserverAI observerAI;
+    private final EventBus eventBus;
     private final Queue<Intervention> interventionQueue = new ConcurrentLinkedQueue<>();
     private final AtomicBoolean tickGuard = new AtomicBoolean(false);
     private long worldVersion = 0L;
@@ -106,6 +110,18 @@ public final class TickCoordinator {
                            SeededRandomFactory randomFactory,
                            CrisisManager crisisManager,
                            ObserverAI observerAI) {
+        this(world, clock, actionDecider, workerPool, ownsWorkerPool, randomFactory, crisisManager, observerAI, new EventBus());
+    }
+
+    public TickCoordinator(World world,
+                           WorldClock clock,
+                           Function<BehaviorContext, Action> actionDecider,
+                           RegionWorkerPool workerPool,
+                           boolean ownsWorkerPool,
+                           SeededRandomFactory randomFactory,
+                           CrisisManager crisisManager,
+                           ObserverAI observerAI,
+                           EventBus eventBus) {
         this.world = Objects.requireNonNull(world, "world");
         this.clock = Objects.requireNonNull(clock, "clock");
         this.actionDecider = Objects.requireNonNull(actionDecider, "actionDecider");
@@ -115,6 +131,7 @@ public final class TickCoordinator {
         this.migrationCoordinator = new MigrationCoordinator(world.settlement());
         this.crisisManager = Objects.requireNonNull(crisisManager, "crisisManager");
         this.observerAI = Objects.requireNonNull(observerAI, "observerAI");
+        this.eventBus = Objects.requireNonNull(eventBus, "eventBus");
     }
 
     public long worldVersion() {
@@ -339,6 +356,27 @@ public final class TickCoordinator {
         // 5f. Apply queued Observer interventions at safe tick boundary
         applyQueuedInterventions(settlement, currentTick);
 
+        // Map ProposedEvents to canonical SimEvents and publish to EventBus
+        List<SimEvent> canonicalEvents = new ArrayList<>();
+        long eventSeq = this.nextGlobalEventSequence - allEvents.size();
+        for (ProposedEvent pe : allEvents) {
+            EventSeverity sev = pe.severity() >= 3 ? EventSeverity.CRITICAL : (pe.severity() == 2 ? EventSeverity.SIGNIFICANT : EventSeverity.MINOR);
+            canonicalEvents.add(new SimEvent(
+                    new EventId(eventSeq++),
+                    currentTick,
+                    pe.eventType(),
+                    List.of(pe.survivorId()),
+                    settlement.survivor(pe.survivorId()).flatMap(Survivor::location),
+                    sev,
+                    pe.summary(),
+                    Map.of(),
+                    List.of()
+            ));
+        }
+
+        // Fan out canonical events to EventBus
+        eventBus.publish(canonicalEvents);
+
         // Phase 6: Advance time and increment version
         clock.advance();
         this.worldVersion++;
@@ -363,6 +401,7 @@ public final class TickCoordinator {
         if (ownsWorkerPool) {
             workerPool.close();
         }
+        eventBus.shutdown();
     }
 
     /**
@@ -378,6 +417,10 @@ public final class TickCoordinator {
 
     public ObserverAI observerAI() {
         return observerAI;
+    }
+
+    public EventBus eventBus() {
+        return eventBus;
     }
 
     /**

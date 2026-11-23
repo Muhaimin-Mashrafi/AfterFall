@@ -852,6 +852,92 @@ classDiagram
         +records() List~InterventionRecord~
     }
 
+    %% ==========================================
+    %% M7: EVENTBUS & NARRATOR (Implemented)
+    %% ==========================================
+
+    class EventSeverity {
+        <<enumeration>>
+        MINOR
+        SIGNIFICANT
+        CRITICAL
+    }
+
+    class SimEvent {
+        -EventId id
+        -long tick
+        -String eventType
+        -List~SurvivorId~ targetSurvivors
+        -Optional~RegionId~ location
+        -EventSeverity severity
+        -String summary
+        -Map~String, String~ data
+        -List~EventId~ sourceReferences
+        +id() EventId
+        +tick() long
+        +eventType() String
+        +targetSurvivors() List
+        +location() Optional
+        +severity() EventSeverity
+        +summary() String
+        +data() Map
+        +sourceReferences() List
+    }
+
+    class EventSubscriber {
+        <<interface>>
+        +subscriberId() String*
+        +onEvents(events) void*
+    }
+
+    class EventBus {
+        -List~EventSubscriber~ subscribers
+        -ConcurrentHashMap~String, Queue~ subscriberQueues
+        +register(subscriber) void
+        +unregister(subscriber) void
+        +publish(events) void
+        +queuedEventsFor(subscriberId) List~SimEvent~
+    }
+
+    class StoryCaption {
+        -long captionId
+        -long tick
+        -String text
+        -EventSeverity severity
+        -List~EventId~ sourceEventIds
+        -List~SurvivorId~ referencedSurvivorIds
+        +captionId() long
+        +tick() long
+        +text() String
+        +severity() EventSeverity
+        +sourceEventIds() List
+        +referencedSurvivorIds() List
+    }
+
+    class NarrativeTemplate {
+        -String id
+        -String eventType
+        -String pattern
+        +render(survivor, target, region, day, extra) String
+    }
+
+    class NarrativeTemplateRepository {
+        -List~NarrativeTemplate~ TEMPLATES$
+        +BANNED_TERMS Set~String~$
+        +allTemplates() List~NarrativeTemplate~$
+        +templatesFor(eventType) List~NarrativeTemplate~$
+    }
+
+    class Narrator {
+        -Settlement settlement
+        -SeededRandomFactory randomFactory
+        -List~StoryCaption~ generatedCaptions
+        -Deque~String~ recentTemplateIds
+        +subscriberId() String
+        +onEvents(events) void
+        +captions() List~StoryCaption~
+    }
+
     %% Core Relationships
     World *-- "1" Settlement : contains
     Settlement *-- "4" Region : manages
@@ -866,6 +952,17 @@ classDiagram
     CrisisManager ..> CrisisEffect : aggregates
     TickCoordinator *-- "1" CrisisManager : coordinates
     TickCoordinator *-- "1" ObserverAI : coordinates
+    TickCoordinator *-- "1" EventBus : publishes to
+    EventBus *-- "0..*" EventSubscriber : observer fan-out
+    EventSubscriber <|.. Narrator : implements
+    EventBus ..> SimEvent : fans out
+    SimEvent --> EventSeverity
+    SimEvent --> EventId
+    Narrator *-- "0..*" StoryCaption : generates
+    Narrator ..> NarrativeTemplateRepository : uses
+    NarrativeTemplateRepository *-- "40..*" NarrativeTemplate : authored templates
+    StoryCaption --> EventSeverity
+    StoryCaption ..> EventId : cites source
     ObserverAI *-- "4" InterventionPolicy : strategy
     InterventionPolicy <|.. InformationDistortionPolicy : implements
     InterventionPolicy <|.. TrustErosionPolicy : implements

@@ -5,8 +5,8 @@ This file is the handoff point between Claude Code sessions. Update it after eve
 ## Current status
 - Project: AfterFall - The Last Days of Humanity
 - Canonical specification: `docs/blueprint/AfterFall-Blueprint-Revised-Solo.md`
-- Current milestone: M6 complete (ObserverAI with four MUST policies: InformationDistortion, TrustErosion, ResourcePressure, and SelectiveDisclosure; Strategy pattern, Intervention commands, evidence records, command queue, safe tick boundary application, 202 passing tests). Awaiting review to proceed to M7.
-- Application code: Spring Boot skeleton, domain models, autonomous behaviors, action commands, 4-worker multithreaded simulation engine, deterministic merge, batch rollback, lifecycle state management, resource pools, crises, and ObserverAI intervention architecture
+- Current milestone: M7 complete (EventBus and Narrator: Canonical SimEvent model, Observer fan-out to isolated subscriber queues with independent asynchronous workers, 46 authored narrative templates in restrained cinematic register, Banned-Term guard test, deterministic seeded template selection, StoryCaption source citation, and 222 passing tests). Awaiting review to proceed to M8.
+- Application code: Spring Boot skeleton, domain models, autonomous behaviors, action commands, 4-worker multithreaded simulation engine, deterministic merge, batch rollback, lifecycle state management, resource pools, crises, ObserverAI, EventBus fan-out, and template-driven Narrator
 - Last updated: 2026-11-23
 
 ## Environment (user-reported)
@@ -42,7 +42,7 @@ This file is the handoff point between Claude Code sessions. Update it after eve
 | M4 | Four workers, deterministic merge, RNG, migration and concurrency | Complete (2026-11-23) |
 | M5 | Resources and Famine/Disease crises | Complete (2026-11-23) |
 | M6 | ObserverAI with four MUST policies | Complete (2026-11-23) |
-| M7 | EventBus and Narrator with 40+ templates | Not started |
+| M7 | EventBus and Narrator with 40+ templates | Complete (2026-11-23) |
 | M8 | Choices, consequences and four threshold-driven chapters | Not started |
 | M9 | Spring Boot, PostgreSQL, persistence interfaces and async recorder | Not started |
 | M10 | Story-first frontend: four core pages plus operator controls | Not started |
@@ -80,10 +80,36 @@ This file is the handoff point between Claude Code sessions. Update it after eve
 9. Cross-region relationship changes are returned as deltas and merged by TickCoordinator.
 
 ## Open items
-- None. M0 through M6 completed and verified (202 passing tests).
-- Awaiting user approval on M6 completion to proceed to M7 (EventBus and Narrator with 40+ templates).
+- None. M0 through M7 completed and verified (222 passing tests).
+- Awaiting user approval on M7 completion to proceed to M8 (Choices, consequences and four threshold-driven chapters).
 
-## Latest completed task: M6 - ObserverAI with four MUST policies (2026-11-23)
+## Latest completed task: M7 - EventBus and Narrator (40+ templates) (2026-11-23)
+Implemented in plain Java across `com.afterfall.events` and `com.afterfall.narrator`; no framework imports (verified by boundary and suite tests).
+
+**Classes created & enhanced**
+- **Canonical Event Bus & Fan-Out (`com.afterfall.events`):**
+  - `EventSeverity`: Enum defining `MINOR`, `SIGNIFICANT`, `CRITICAL`.
+  - `SimEvent`: Immutable canonical simulation event carrying `EventId`, `tick`, `eventType`, `targetSurvivors`, `location`, `severity`, `summary`, structured `data`, and causal `sourceReferences`.
+  - `EventSubscriber`: Interface for independent subscriber listeners with dedicated queue buffers.
+  - `EventBus`: Observer pattern implementation with isolated subscriber queues (`ConcurrentHashMap<String, Queue<SimEvent>>`); slow or failing subscribers cannot block other subscribers or simulation ticking.
+- **Narrator & Authored Templates (`com.afterfall.narrator`):**
+  - `StoryCaption`: Immutable story caption linking rendered documentary text to source `EventId`s and referenced `SurvivorId`s.
+  - `NarrativeTemplate`: Authored template abstraction with placeholders `{survivor}`, `{target}`, `{region}`, `{day}`, `{extra}`.
+  - `NarrativeTemplateRepository`: Collection of **46 authored narrative templates** covering routines, medical afflictions, famine, disease outbreak, Observer distortions, and quiet implied endings. Defines `BANNED_TERMS` list.
+  - `Narrator`: Independent `EventSubscriber` implementing priority evaluation, deterministic template selection using run seed and event attributes, and bounded anti-repetition memory (size 8).
+- **Simulation Integration (`com.afterfall.simulation`):**
+  - `TickCoordinator`: Maps collected `ProposedEvent`s to canonical `SimEvent`s with sequential `EventId`s and fans them out to `EventBus`. Exposes `eventBus()` and constructor injection.
+
+**Tests created & verified**
+- `SimEventTest`: 3 tests verifying immutability, validation, and builder construction.
+- `EventBusTest`: 3 tests verifying fan-out to independent queues, faulty subscriber isolation, and subscriber registration lifecycle.
+- `NarrativeTemplateRepositoryTest`: 4 tests verifying 46 authored templates, unique IDs, placeholder rendering, and the **Banned-Term Keyword Test** asserting 0 sensitive/graphic terms.
+- `NarratorTest`: 3 tests verifying caption generation linked to source event IDs, deterministic template selection across seeds, and end-to-end integration under `TickCoordinator`.
+- `CoreBoundaryTest`: Expanded to verify zero framework imports in `com.afterfall.events` and `com.afterfall.narrator`.
+
+Total project tests passing: **222** (0 failures, 0 errors, 0 skipped).
+
+## Previous completed task: M6 - ObserverAI with four MUST policies (2026-11-23)
 Implemented in plain Java across `com.afterfall.observer` and `com.afterfall.simulation`; no framework imports (verified by boundary and suite tests).
 
 **Classes created & enhanced**

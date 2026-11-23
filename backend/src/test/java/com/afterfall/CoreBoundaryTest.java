@@ -23,7 +23,9 @@ class CoreBoundaryTest {
             Path.of("src/main/java/com/afterfall/behavior"),
             Path.of("src/main/java/com/afterfall/action"),
             Path.of("src/main/java/com/afterfall/simulation"),
-            Path.of("src/main/java/com/afterfall/observer"));
+            Path.of("src/main/java/com/afterfall/observer"),
+            Path.of("src/main/java/com/afterfall/events"),
+            Path.of("src/main/java/com/afterfall/narrator"));
 
     private static final List<String> FORBIDDEN_PREFIXES = List.of(
             "import org.springframework",

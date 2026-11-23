@@ -5,8 +5,8 @@ This file is the handoff point between Claude Code sessions. Update it after eve
 ## Current status
 - Project: AfterFall - The Last Days of Humanity
 - Canonical specification: `docs/blueprint/AfterFall-Blueprint-Revised-Solo.md`
-- Current milestone: M5 complete (Resources & Famine/Disease Crises: Thread-safe Resource invariant, ResourceStock settlement pool, Template Method Crisis hierarchy, FamineCrisis, DiseaseOutbreak, CrisisManager, sole-writer integration in TickCoordinator, and 192 passing tests). Awaiting review to proceed to M6.
-- Application code: Spring Boot skeleton, domain models, autonomous behaviors, action commands, 4-worker multithreaded simulation engine, deterministic merge, batch rollback, lifecycle state management, resource pools, and crisis simulation
+- Current milestone: M6 complete (ObserverAI with four MUST policies: InformationDistortion, TrustErosion, ResourcePressure, and SelectiveDisclosure; Strategy pattern, Intervention commands, evidence records, command queue, safe tick boundary application, 202 passing tests). Awaiting review to proceed to M7.
+- Application code: Spring Boot skeleton, domain models, autonomous behaviors, action commands, 4-worker multithreaded simulation engine, deterministic merge, batch rollback, lifecycle state management, resource pools, crises, and ObserverAI intervention architecture
 - Last updated: 2026-11-23
 
 ## Environment (user-reported)
@@ -41,7 +41,7 @@ This file is the handoff point between Claude Code sessions. Update it after eve
 | M3 | Correct single-threaded simulation baseline | Complete (2026-11-23) |
 | M4 | Four workers, deterministic merge, RNG, migration and concurrency | Complete (2026-11-23) |
 | M5 | Resources and Famine/Disease crises | Complete (2026-11-23) |
-| M6 | ObserverAI with four MUST policies | Not started |
+| M6 | ObserverAI with four MUST policies | Complete (2026-11-23) |
 | M7 | EventBus and Narrator with 40+ templates | Not started |
 | M8 | Choices, consequences and four threshold-driven chapters | Not started |
 | M9 | Spring Boot, PostgreSQL, persistence interfaces and async recorder | Not started |
@@ -80,10 +80,38 @@ This file is the handoff point between Claude Code sessions. Update it after eve
 9. Cross-region relationship changes are returned as deltas and merged by TickCoordinator.
 
 ## Open items
-- None. M0 through M5 completed and verified (192 passing tests).
-- Awaiting user approval on M5 completion to proceed to M6 (ObserverAI with four MUST policies).
+- None. M0 through M6 completed and verified (202 passing tests).
+- Awaiting user approval on M6 completion to proceed to M7 (EventBus and Narrator with 40+ templates).
 
-## Latest completed task: M5 - Resources and Famine/Disease Crises (2026-11-23)
+## Latest completed task: M6 - ObserverAI with four MUST policies (2026-11-23)
+Implemented in plain Java across `com.afterfall.observer` and `com.afterfall.simulation`; no framework imports (verified by boundary and suite tests).
+
+**Classes created & enhanced**
+- **Intervention Models & Commands (`com.afterfall.observer`):**
+  - `InterventionType`: Enum defining `INFORMATION_DISTORTION`, `TRUST_EROSION`, `RESOURCE_PRESSURE`, `SELECTIVE_DISCLOSURE`.
+  - `InterventionStatus`: Enum defining `PROPOSED`, `APPLIED`, `REJECTED`.
+  - `Intervention`: Immutable command record/builder carrying policy justification, intended effects, need deltas, trust deltas, target references, and preserving both original and altered reports.
+  - `InterventionRecord`: Immutable audit record capturing the full evidence trail (`tick`, `targetDescription`, `policy`, `reason`, `intendedEffect`, `actualResult`, `status`, `originalReport`, `alteredReport`) for Recovered Records.
+  - `ObservationReport`: Read-only aggregated metrics (active survivors, ill survivors, food/water/medicine stock, average trust, average morale, and relationship tension).
+- **Intervention Policies (Strategy Pattern, `com.afterfall.observer`):**
+  - `InterventionPolicy` (interface): Defines `type()`, `shouldTrigger(report)`, and `evaluate(...)` returning `Optional<Intervention>`.
+  - `InformationDistortionPolicy`: Triggers when trust is low, food shortage is active, and tension is high; fabricates altered reports of secret reallocation and reduces safety.
+  - `TrustErosionPolicy`: Triggers on high relationship tension or low trust; targets conflicting survivors and reduces interpersonal trust.
+  - `ResourcePressurePolicy`: Triggers when resources fall below warning thresholds; amplifies scarcity perception and induces competition.
+  - `SelectiveDisclosurePolicy`: Triggers when contagion or low morale is present; selectively discloses alarming infection warnings while omitting cure availability.
+  - `ObserverAI`: Strategy coordinator evaluating policies against immutable `WorldView` snapshots, proposing `Intervention` commands without direct domain mutation, and archiving evidence records.
+- **Simulation Integration (`com.afterfall.simulation`):**
+  - `TickCoordinator`: Added `queueIntervention(Intervention)`, `observerAI()`, and integrated deterministic Phase 5f safe tick boundary intervention execution. Interventions are validated, target alive survivors, apply deltas as sole writer, and record execution status (`APPLIED` / `REJECTED`).
+
+**Tests created & verified**
+- `ObserverPolicyTest`: 4 tests verifying independent trigger conditions, report generation, and intended effects for all 4 MUST policies.
+- `ObserverAITest`: 3 tests verifying zero direct domain state mutation during evaluation, deterministic proposal generation across seeds, and accurate audit trail recording.
+- `ObserverIntegrationTest`: 3 integration tests verifying queued intervention boundary application, graceful rejection of invalid/deceased targets, and trust erosion between connected survivors under `TickCoordinator`.
+- `CoreBoundaryTest`: Expanded to include `com.afterfall.observer` and verified zero prohibited framework imports.
+
+Total project tests passing: **202** (0 failures, 0 errors, 0 skipped).
+
+## Previous completed task: M5 - Resources and Famine/Disease Crises (2026-11-23)
 Implemented in plain Java across `com.afterfall.domain` and `com.afterfall.simulation`; no framework imports (verified by boundary and suite tests).
 
 **Classes created & enhanced**

@@ -752,6 +752,106 @@ classDiagram
         +hasActiveCrisis() boolean
     }
 
+    %% ==========================================
+    %% M6: OBSERVER AI & INTERVENTIONS (Implemented)
+    %% ==========================================
+
+    class InterventionType {
+        <<enumeration>>
+        INFORMATION_DISTORTION
+        TRUST_EROSION
+        RESOURCE_PRESSURE
+        SELECTIVE_DISCLOSURE
+    }
+
+    class InterventionStatus {
+        <<enumeration>>
+        PROPOSED
+        APPLIED
+        REJECTED
+    }
+
+    class Intervention {
+        -long id
+        -long tick
+        -InterventionType type
+        -Optional~SurvivorId~ targetSurvivor
+        -Optional~RegionId~ targetRegion
+        -String reason
+        -String intendedEffect
+        -String originalReport
+        -String alteredReport
+        -Map~Need, Integer~ needDeltas
+        -int trustDelta
+        -Optional~SurvivorId~ relatedSurvivor
+        +id() long
+        +tick() long
+        +type() InterventionType
+        +needDeltas() Map
+        +trustDelta() int
+        +builder(id, tick, type) Builder$
+    }
+
+    class InterventionRecord {
+        -long interventionId
+        -long tick
+        -InterventionType type
+        -String targetDescription
+        -String reason
+        -String intendedEffect
+        -String actualResult
+        -InterventionStatus status
+        -String originalReport
+        -String alteredReport
+    }
+
+    class ObservationReport {
+        -long tick
+        -int activeSurvivors
+        -int illSurvivors
+        -int foodStock
+        -double averageTrust
+        -double averageMorale
+        -double relationshipTension
+        +from(worldView, settlement) ObservationReport$
+    }
+
+    class InterventionPolicy {
+        <<interface>>
+        +type() InterventionType*
+        +shouldTrigger(report) boolean*
+        +evaluate(report, worldView, settlement, id, randomFactory) Optional~Intervention~*
+    }
+
+    class InformationDistortionPolicy {
+        -double trustThreshold
+        -int foodThreshold
+        -double tensionThreshold
+    }
+
+    class TrustErosionPolicy {
+        -double tensionThreshold
+        -int trustDrop
+    }
+
+    class ResourcePressurePolicy {
+        -int foodAlertThreshold
+        -int medicineAlertThreshold
+    }
+
+    class SelectiveDisclosurePolicy {
+        -int illTriggerThreshold
+        -double lowMoraleThreshold
+    }
+
+    class ObserverAI {
+        -List~InterventionPolicy~ policies
+        -List~InterventionRecord~ records
+        +analyzeAndPropose(worldView, settlement, randomFactory) Optional~Intervention~
+        +record(intervention, status, result) void
+        +records() List~InterventionRecord~
+    }
+
     %% Core Relationships
     World *-- "1" Settlement : contains
     Settlement *-- "4" Region : manages
@@ -765,6 +865,18 @@ classDiagram
     CrisisManager *-- "2" Crisis : manages
     CrisisManager ..> CrisisEffect : aggregates
     TickCoordinator *-- "1" CrisisManager : coordinates
+    TickCoordinator *-- "1" ObserverAI : coordinates
+    ObserverAI *-- "4" InterventionPolicy : strategy
+    InterventionPolicy <|.. InformationDistortionPolicy : implements
+    InterventionPolicy <|.. TrustErosionPolicy : implements
+    InterventionPolicy <|.. ResourcePressurePolicy : implements
+    InterventionPolicy <|.. SelectiveDisclosurePolicy : implements
+    ObserverAI ..> Intervention : proposes (Command)
+    ObserverAI *-- "0..*" InterventionRecord : archives (Evidence)
+    Intervention --> InterventionType
+    InterventionRecord --> InterventionType
+    InterventionRecord --> InterventionStatus
+    TickCoordinator ..> Intervention : validates & applies
     Region o-- "0..*" SurvivorId : references
     Survivor *-- "1" SurvivorId : identity
     Survivor *-- "1" Personality : composition

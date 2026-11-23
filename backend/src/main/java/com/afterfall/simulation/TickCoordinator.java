@@ -7,8 +7,13 @@ import com.afterfall.action.ResourceClaim;
 import com.afterfall.behavior.BehaviorContext;
 import com.afterfall.behavior.BehaviorSelector;
 import com.afterfall.domain.*;
+import com.afterfall.observer.Intervention;
+import com.afterfall.observer.InterventionRecord;
+import com.afterfall.observer.InterventionStatus;
+import com.afterfall.observer.ObserverAI;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -43,6 +48,8 @@ public final class TickCoordinator {
     private final SeededRandomFactory randomFactory;
     private final MigrationCoordinator migrationCoordinator;
     private final CrisisManager crisisManager;
+    private final ObserverAI observerAI;
+    private final Queue<Intervention> interventionQueue = new ConcurrentLinkedQueue<>();
     private final AtomicBoolean tickGuard = new AtomicBoolean(false);
     private long worldVersion = 0L;
     private long nextGlobalEventSequence = 1L;
@@ -88,6 +95,17 @@ public final class TickCoordinator {
                            boolean ownsWorkerPool,
                            SeededRandomFactory randomFactory,
                            CrisisManager crisisManager) {
+        this(world, clock, actionDecider, workerPool, ownsWorkerPool, randomFactory, crisisManager, new ObserverAI());
+    }
+
+    public TickCoordinator(World world,
+                           WorldClock clock,
+                           Function<BehaviorContext, Action> actionDecider,
+                           RegionWorkerPool workerPool,
+                           boolean ownsWorkerPool,
+                           SeededRandomFactory randomFactory,
+                           CrisisManager crisisManager,
+                           ObserverAI observerAI) {
         this.world = Objects.requireNonNull(world, "world");
         this.clock = Objects.requireNonNull(clock, "clock");
         this.actionDecider = Objects.requireNonNull(actionDecider, "actionDecider");
@@ -96,6 +114,7 @@ public final class TickCoordinator {
         this.randomFactory = Objects.requireNonNull(randomFactory, "randomFactory");
         this.migrationCoordinator = new MigrationCoordinator(world.settlement());
         this.crisisManager = Objects.requireNonNull(crisisManager, "crisisManager");
+        this.observerAI = Objects.requireNonNull(observerAI, "observerAI");
     }
 
     public long worldVersion() {
@@ -317,6 +336,9 @@ public final class TickCoordinator {
             });
         }
 
+        // 5f. Apply queued Observer interventions at safe tick boundary
+        applyQueuedInterventions(settlement, currentTick);
+
         // Phase 6: Advance time and increment version
         clock.advance();
         this.worldVersion++;
@@ -352,6 +374,79 @@ public final class TickCoordinator {
 
     public CrisisManager crisisManager() {
         return crisisManager;
+    }
+
+    public ObserverAI observerAI() {
+        return observerAI;
+    }
+
+    /**
+     * Submits an intervention command to the queue to be applied at the next safe tick boundary.
+     */
+    public void queueIntervention(Intervention intervention) {
+        interventionQueue.offer(Objects.requireNonNull(intervention, "intervention"));
+    }
+
+    private void applyQueuedInterventions(Settlement settlement, long currentTick) {
+        List<Intervention> toProcess = new ArrayList<>();
+        Intervention item;
+        while ((item = interventionQueue.poll()) != null) {
+            toProcess.add(item);
+        }
+
+        // Deterministic ordering by intervention ID
+        toProcess.sort(Comparator.comparingLong(Intervention::id));
+
+        for (Intervention intervention : toProcess) {
+            applySingleIntervention(settlement, intervention, currentTick);
+        }
+    }
+
+    private void applySingleIntervention(Settlement settlement, Intervention intervention, long currentTick) {
+        // Validation: if target survivor specified, must exist and be alive
+        if (intervention.targetSurvivor().isPresent()) {
+            SurvivorId tid = intervention.targetSurvivor().get();
+            Optional<Survivor> sOpt = settlement.survivor(tid);
+            if (sOpt.isEmpty() || !sOpt.get().isAlive()) {
+                observerAI.record(intervention, InterventionStatus.REJECTED,
+                        "Target survivor " + tid.value() + " does not exist or is deceased.");
+                return;
+            }
+        }
+
+        // Apply state changes as sole writer
+        if (intervention.targetSurvivor().isPresent()) {
+            Survivor target = settlement.survivor(intervention.targetSurvivor().get()).get();
+            for (Map.Entry<Need, Integer> entry : intervention.needDeltas().entrySet()) {
+                target.needs().adjust(entry.getKey(), entry.getValue());
+            }
+
+            // Relationship adjustment if specified
+            if (intervention.trustDelta() != 0 && intervention.relatedSurvivor().isPresent()) {
+                SurvivorId relId = intervention.relatedSurvivor().get();
+                target.relationshipWith(relId).ifPresent(rel -> {
+                    rel.adjust((int) currentTick, intervention.trustDelta(), 0, -intervention.trustDelta(), new EventId(nextGlobalEventSequence++));
+                });
+            }
+        } else if (intervention.targetRegion().isPresent()) {
+            // Apply to all alive survivors in the target region
+            RegionId rid = intervention.targetRegion().get();
+            Optional<Region> regionOpt = settlement.region(rid);
+            if (regionOpt.isPresent()) {
+                for (SurvivorId sid : regionOpt.get().survivorIds()) {
+                    settlement.survivor(sid).ifPresent(s -> {
+                        if (s.isAlive()) {
+                            for (Map.Entry<Need, Integer> entry : intervention.needDeltas().entrySet()) {
+                                s.needs().adjust(entry.getKey(), entry.getValue());
+                            }
+                        }
+                    });
+                }
+            }
+        }
+
+        observerAI.record(intervention, InterventionStatus.APPLIED,
+                "Applied at tick " + currentTick + " boundary with intended effect: " + intervention.intendedEffect());
     }
 
     /**

@@ -84,7 +84,14 @@ public final class NarrativeTemplateRepository {
             new NarrativeTemplate("LOSS_1", "SURVIVOR_DEATH", "Day {day}. The east shelter stood vacant by morning; {survivor}'s journey had ended."),
             new NarrativeTemplate("LOSS_2", "SURVIVOR_DEATH", "A quiet mantle of grief settled as {survivor} did not answer the morning muster."),
             new NarrativeTemplate("LOSS_3", "SURVIVOR_DEATH", "Her chair stayed turned toward the window; {survivor} was spoken of only in whispers."),
-            new NarrativeTemplate("LOSS_4", "SURVIVOR_DEATH", "Day {day}. Another voice fell silent in the bitter chill of {region}.")
+            new NarrativeTemplate("LOSS_4", "SURVIVOR_DEATH", "Day {day}. Another voice fell silent in the bitter chill of {region}."),
+
+            // --- CHAPTER TRANSITIONS & CHOICES (47-51) ---
+            new NarrativeTemplate("CHAP_1", "CHAPTER_TRANSITION", "Day {day}. A new chapter opened in the settlement's history: {extra}"),
+            new NarrativeTemplate("CHAP_2", "CHAPTER_TRANSITION", "Day {day}. The communal silence shifted: {extra}"),
+            new NarrativeTemplate("CHAP_FORCED", "CHAPTER_FORCED", "Day {day}. Unyielding circumstances precipitated a critical turning point: {extra}"),
+            new NarrativeTemplate("CHOICE_1", "CHOICE_CONSEQUENCE", "Day {day}. A deliberate decision took effect: {extra}"),
+            new NarrativeTemplate("CHOICE_2", "CHOICE_CONSEQUENCE", "Day {day}. Following Overseer directives, resources and duties were shifted: {extra}")
     );
 
     public static List<NarrativeTemplate> allTemplates() {

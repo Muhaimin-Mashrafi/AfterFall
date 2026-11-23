@@ -143,9 +143,11 @@ public final class SimulationEngine {
             }
             return result;
         } finally {
-            // Honour pause requests at the tick boundary
-            if (lifecycle == SimulationLifecycle.PAUSE_REQUESTED) {
-                this.lifecycle = SimulationLifecycle.PAUSED;
+            // Honour pause requests or choice moments at the tick boundary
+            if (coordinator.choiceCoordinator().hasPendingPause() || lifecycle == SimulationLifecycle.PAUSE_REQUESTED) {
+                if (lifecycle == SimulationLifecycle.RUNNING || lifecycle == SimulationLifecycle.PAUSE_REQUESTED) {
+                    this.lifecycle = SimulationLifecycle.PAUSED;
+                }
             }
         }
     }

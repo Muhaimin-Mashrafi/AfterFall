@@ -5,9 +5,9 @@ This file is the handoff point between Claude Code sessions. Update it after eve
 ## Current status
 - Project: AfterFall - The Last Days of Humanity
 - Canonical specification: `docs/blueprint/AfterFall-Blueprint-Revised-Solo.md`
-- Current milestone: M7 complete (EventBus and Narrator: Canonical SimEvent model, Observer fan-out to isolated subscriber queues with independent asynchronous workers, 46 authored narrative templates in restrained cinematic register, Banned-Term guard test, deterministic seeded template selection, StoryCaption source citation, and 222 passing tests). Awaiting review to proceed to M8.
-- Application code: Spring Boot skeleton, domain models, autonomous behaviors, action commands, 4-worker multithreaded simulation engine, deterministic merge, batch rollback, lifecycle state management, resource pools, crises, ObserverAI, EventBus fan-out, and template-driven Narrator
-- Last updated: 2026-11-23
+- Current milestone: M8 complete (Choices, Consequences and Threshold-Driven Chapters: ChoiceMoment, ChoiceOption, ChoiceCoordinator, safe boundary pause/resume, consequence queueing and application in Phase 5g; StoryState snapshot, ChapterManager, ChapterConfig with D_min, D_soft and D_hard guardrails, four sequential ChapterPolicy strategies, ChapterTransition, EventBus integration for CHAPTER_TRANSITION/CHAPTER_FORCED/CHOICE_CONSEQUENCE, dedicated pause/resume boundary tests, 20-seed arc integration test passing without forced backstop transitions, and 234 total passing tests). Awaiting review to proceed to M9.
+- Application code: Spring Boot skeleton, domain models, autonomous behaviors, action commands, 4-worker multithreaded simulation engine, deterministic merge, batch rollback, lifecycle state management, resource pools, crises, ObserverAI, EventBus fan-out, template-driven Narrator, Choice moments & consequence application, and threshold-driven Chapter policies
+- Last updated: 2026-11-24
 
 ## Environment (user-reported)
 - Assistant: Google Antigravity
@@ -43,7 +43,7 @@ This file is the handoff point between Claude Code sessions. Update it after eve
 | M5 | Resources and Famine/Disease crises | Complete (2026-11-23) |
 | M6 | ObserverAI with four MUST policies | Complete (2026-11-23) |
 | M7 | EventBus and Narrator with 40+ templates | Complete (2026-11-23) |
-| M8 | Choices, consequences and four threshold-driven chapters | Not started |
+| M8 | Choices, consequences and four threshold-driven chapters | Complete (2026-11-24) |
 | M9 | Spring Boot, PostgreSQL, persistence interfaces and async recorder | Not started |
 | M10 | Story-first frontend: four core pages plus operator controls | Not started |
 | M11 | Recovered records and final recap | Not started |

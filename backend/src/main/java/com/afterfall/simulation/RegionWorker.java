@@ -72,6 +72,10 @@ public final class RegionWorker {
                 throw new IllegalStateException("Survivor " + survivorId + " in region " + regionId + " not found in WorldView");
             }
 
+            if (!survivorView.isAlive()) {
+                continue;
+            }
+
             // Build snapshot from immutable WorldView
             SurvivorSnapshot snapshot = new SurvivorSnapshot(
                     survivorView.id(),

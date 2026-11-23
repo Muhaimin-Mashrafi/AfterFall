@@ -1001,3 +1001,173 @@ classDiagram
     InitialPopulation ..> PopulationConfig : uses
 
     SurvivorSnapshot ..> Survivor : snapshots
+
+    %% ==========================================
+    %% CHOICE & CHAPTER SUBSYSTEM (Implemented M8)
+    %% ==========================================
+
+    class ChoiceOption {
+        <<record>>
+        +String optionId
+        +String label
+        +String description
+        +ChoiceConsequence consequence
+        +boolean isDefault
+    }
+
+    class ChoiceConsequence {
+        <<record>>
+        +Map~ResourceType, Integer~ resourceDeltas
+        +Map~Need, Integer~ generalNeedDeltas
+        +int trustDelta
+        +List~SurvivorId~ targetSurvivors
+        +String summary
+        +int severity
+        +builder(summary)$ Builder
+    }
+
+    class ChoiceMoment {
+        -String id
+        -long tick
+        -String chapterId
+        -String title
+        -String prompt
+        -List~ChoiceOption~ options
+        -String defaultOptionId
+        -Optional~String~ selectedOptionId
+        +resolve(optionId) ChoiceRecord
+        +resolveDefault() ChoiceRecord
+        +isResolved() boolean
+    }
+
+    class ChoiceRecord {
+        <<record>>
+        +String choiceId
+        +long tick
+        +String chapterId
+        +String selectedOptionId
+        +String optionLabel
+        +String consequenceSummary
+        +boolean usedDefault
+    }
+
+    class ChoiceCoordinator {
+        -Map~String, ChoiceMoment~ activeMoments
+        -Queue~ChoiceConsequence~ pendingConsequences
+        -List~ChoiceRecord~ decisionLog
+        -ChoiceMoment pendingPauseMoment
+        +triggerChoice(moment)
+        +hasPendingPause() boolean
+        +pendingChoice() Optional~ChoiceMoment~
+        +submitDecision(choiceId, optionId) ChoiceRecord
+        +drainPendingConsequences() List~ChoiceConsequence~
+    }
+
+    class ChapterType {
+        <<enumeration>>
+        CHAPTER_1_A_NEW_BEGINNING
+        CHAPTER_2_THE_FRACTURE
+        CHAPTER_3_THE_REVELATION
+        CHAPTER_4_THE_LAST_RECORDING
+        +next() ChapterType
+        +isTerminal() boolean
+    }
+
+    class ChapterConfig {
+        <<record>>
+        +int minDwellTicks
+        +int softPressureTicks
+        +int hardBackstopTicks
+        +int trustT1
+        +int shortageN1
+        +int evidenceCountE
+        +int exposureLevelX
+        +int moraleM1
+        +int trustT2
+        +int populationP
+        +int moraleM2
+        +int trustT3
+        +int criticalTicksN2
+        +defaultConfig()$ ChapterConfig
+    }
+
+    class StoryState {
+        <<record>>
+        +long currentTick
+        +ChapterType currentChapter
+        +long chapterStartTick
+        +int activePopulation
+        +int averageTrust
+        +int averageMorale
+        +int consecutiveShortageTicks
+        +int discoveredEvidenceCount
+        +int observerExposureLevel
+        +int visibleInterventionsCount
+        +int consecutiveCriticalTicks
+        +chapterDwell() long
+        +snapshot(settlement, ...)$ StoryState
+    }
+
+    class ChapterPolicy {
+        <<interface>>
+        +sourceChapter()* ChapterType
+        +evaluateTransition(state, config)* Optional~String~
+    }
+
+    class NewBeginningPolicy {
+        +sourceChapter() ChapterType
+        +evaluateTransition(state, config) Optional~String~
+    }
+
+    class TheFracturePolicy {
+        +sourceChapter() ChapterType
+        +evaluateTransition(state, config) Optional~String~
+    }
+
+    class TheRevelationPolicy {
+        +sourceChapter() ChapterType
+        +evaluateTransition(state, config) Optional~String~
+    }
+
+    class TheLastRecordingPolicy {
+        +sourceChapter() ChapterType
+        +evaluateTransition(state, config) Optional~String~
+    }
+
+    class ChapterTransition {
+        <<record>>
+        +long tick
+        +ChapterType fromChapter
+        +ChapterType toChapter
+        +String triggerReason
+        +boolean isForced
+    }
+
+    class ChapterManager {
+        -ChapterConfig config
+        -Map~ChapterType, ChapterPolicy~ policies
+        -List~ChapterTransition~ transitionHistory
+        -ChapterType currentChapter
+        -long chapterStartTick
+        +evaluateTick(settlement, currentTick, shortage) Optional~ChapterTransition~
+        +isPressureEscalationActive(currentTick) boolean
+        +recordEvidenceDiscovered()
+        +recordVisibleIntervention()
+    }
+
+    ChoiceMoment *-- "1..*" ChoiceOption : contains
+    ChoiceOption *-- "1" ChoiceConsequence : defines
+    ChoiceCoordinator *-- "0..*" ChoiceMoment : manages
+    ChoiceCoordinator *-- "0..*" ChoiceRecord : logs
+    ChoiceCoordinator *-- "0..*" ChoiceConsequence : queues
+    TickCoordinator *-- "1" ChoiceCoordinator : coordinates
+    TickCoordinator *-- "1" ChapterManager : coordinates
+    ChapterManager *-- "1" ChapterConfig : configures
+    ChapterManager *-- "4" ChapterPolicy : strategy
+    ChapterPolicy <|.. NewBeginningPolicy : implements
+    ChapterPolicy <|.. TheFracturePolicy : implements
+    ChapterPolicy <|.. TheRevelationPolicy : implements
+    ChapterPolicy <|.. TheLastRecordingPolicy : implements
+    ChapterPolicy ..> StoryState : evaluates
+    ChapterManager *-- "0..*" ChapterTransition : records
+    ChapterManager --> ChapterType : state

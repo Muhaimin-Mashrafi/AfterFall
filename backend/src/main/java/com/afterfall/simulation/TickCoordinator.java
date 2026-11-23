@@ -6,6 +6,11 @@ import com.afterfall.action.ProposedEvent;
 import com.afterfall.action.ResourceClaim;
 import com.afterfall.behavior.BehaviorContext;
 import com.afterfall.behavior.BehaviorSelector;
+import com.afterfall.chapter.ChapterManager;
+import com.afterfall.chapter.ChapterTransition;
+import com.afterfall.chapter.ChapterType;
+import com.afterfall.choice.ChoiceConsequence;
+import com.afterfall.choice.ChoiceCoordinator;
 import com.afterfall.domain.*;
 import com.afterfall.events.EventBus;
 import com.afterfall.events.EventSeverity;
@@ -53,6 +58,8 @@ public final class TickCoordinator {
     private final CrisisManager crisisManager;
     private final ObserverAI observerAI;
     private final EventBus eventBus;
+    private final ChoiceCoordinator choiceCoordinator;
+    private final ChapterManager chapterManager;
     private final Queue<Intervention> interventionQueue = new ConcurrentLinkedQueue<>();
     private final AtomicBoolean tickGuard = new AtomicBoolean(false);
     private long worldVersion = 0L;
@@ -110,7 +117,7 @@ public final class TickCoordinator {
                            SeededRandomFactory randomFactory,
                            CrisisManager crisisManager,
                            ObserverAI observerAI) {
-        this(world, clock, actionDecider, workerPool, ownsWorkerPool, randomFactory, crisisManager, observerAI, new EventBus());
+        this(world, clock, actionDecider, workerPool, ownsWorkerPool, randomFactory, crisisManager, observerAI, new EventBus(), new ChoiceCoordinator(), new ChapterManager());
     }
 
     public TickCoordinator(World world,
@@ -122,6 +129,20 @@ public final class TickCoordinator {
                            CrisisManager crisisManager,
                            ObserverAI observerAI,
                            EventBus eventBus) {
+        this(world, clock, actionDecider, workerPool, ownsWorkerPool, randomFactory, crisisManager, observerAI, eventBus, new ChoiceCoordinator(), new ChapterManager());
+    }
+
+    public TickCoordinator(World world,
+                           WorldClock clock,
+                           Function<BehaviorContext, Action> actionDecider,
+                           RegionWorkerPool workerPool,
+                           boolean ownsWorkerPool,
+                           SeededRandomFactory randomFactory,
+                           CrisisManager crisisManager,
+                           ObserverAI observerAI,
+                           EventBus eventBus,
+                           ChoiceCoordinator choiceCoordinator,
+                           ChapterManager chapterManager) {
         this.world = Objects.requireNonNull(world, "world");
         this.clock = Objects.requireNonNull(clock, "clock");
         this.actionDecider = Objects.requireNonNull(actionDecider, "actionDecider");
@@ -132,6 +153,8 @@ public final class TickCoordinator {
         this.crisisManager = Objects.requireNonNull(crisisManager, "crisisManager");
         this.observerAI = Objects.requireNonNull(observerAI, "observerAI");
         this.eventBus = Objects.requireNonNull(eventBus, "eventBus");
+        this.choiceCoordinator = Objects.requireNonNull(choiceCoordinator, "choiceCoordinator");
+        this.chapterManager = Objects.requireNonNull(chapterManager, "chapterManager");
     }
 
     public long worldVersion() {
@@ -356,6 +379,19 @@ public final class TickCoordinator {
         // 5f. Apply queued Observer interventions at safe tick boundary
         applyQueuedInterventions(settlement, currentTick);
 
+        // 5g. Apply queued Choice consequences at safe tick boundary
+        applyQueuedChoiceConsequences(settlement, currentTick, allEvents);
+
+        // 5h. Evaluate chapter transitions against StoryState
+        boolean shortage = stock.quantity(ResourceType.FOOD) <= 10 || stock.quantity(ResourceType.MEDICINE) <= 5;
+        Optional<ChapterTransition> transitionOpt = chapterManager.evaluateTick(settlement, currentTick, shortage);
+        transitionOpt.ifPresent(trans -> {
+            String eventType = trans.isForced() ? "CHAPTER_FORCED" : "CHAPTER_TRANSITION";
+            String summary = trans.toChapter().displayName() + " began: " + trans.triggerReason();
+            allEvents.add(new ProposedEvent(eventType, new SurvivorId(1), summary, 3)); // Severity 3 = CRITICAL
+            nextGlobalEventSequence++;
+        });
+
         // Map ProposedEvents to canonical SimEvents and publish to EventBus
         List<SimEvent> canonicalEvents = new ArrayList<>();
         long eventSeq = this.nextGlobalEventSequence - allEvents.size();
@@ -409,6 +445,14 @@ public final class TickCoordinator {
      */
     public void shutdown() {
         close();
+    }
+
+    public ChoiceCoordinator choiceCoordinator() {
+        return choiceCoordinator;
+    }
+
+    public ChapterManager chapterManager() {
+        return chapterManager;
     }
 
     public CrisisManager crisisManager() {
@@ -490,6 +534,47 @@ public final class TickCoordinator {
 
         observerAI.record(intervention, InterventionStatus.APPLIED,
                 "Applied at tick " + currentTick + " boundary with intended effect: " + intervention.intendedEffect());
+    }
+
+    private void applyQueuedChoiceConsequences(Settlement settlement, long currentTick, List<ProposedEvent> allEvents) {
+        List<ChoiceConsequence> consequences = choiceCoordinator.drainPendingConsequences();
+        for (ChoiceConsequence c : consequences) {
+            // Apply resource adjustments
+            ResourceStock stock = settlement.resourceStock();
+            for (Map.Entry<ResourceType, Integer> entry : c.resourceDeltas().entrySet()) {
+                if (entry.getValue() > 0) {
+                    stock.resource(entry.getKey()).add(entry.getValue());
+                } else if (entry.getValue() < 0) {
+                    stock.resource(entry.getKey()).consume(-entry.getValue());
+                }
+            }
+
+            // Apply survivor need adjustments
+            for (SurvivorId sid : c.targetSurvivors()) {
+                settlement.survivor(sid).ifPresent(s -> {
+                    if (s.isAlive()) {
+                        for (Map.Entry<Need, Integer> ne : c.generalNeedDeltas().entrySet()) {
+                            s.needs().adjust(ne.getKey(), ne.getValue());
+                        }
+                    }
+                });
+            }
+
+            // Apply trust adjustments
+            if (c.trustDelta() != 0 && !c.targetSurvivors().isEmpty()) {
+                SurvivorId primary = c.targetSurvivors().get(0);
+                settlement.survivor(primary).ifPresent(s -> {
+                    for (var rel : s.relationships()) {
+                        rel.adjust((int) currentTick, c.trustDelta(), 0, -c.trustDelta(), new EventId(nextGlobalEventSequence++));
+                    }
+                });
+            }
+
+            // Record as a proposed event
+            SurvivorId refSurvivor = c.targetSurvivors().isEmpty() ? new SurvivorId(1) : c.targetSurvivors().get(0);
+            allEvents.add(new ProposedEvent("CHOICE_CONSEQUENCE", refSurvivor, c.summary(), c.severity()));
+            nextGlobalEventSequence++;
+        }
     }
 
     /**

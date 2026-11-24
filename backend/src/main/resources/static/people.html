@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AfterFall — Survivor Personnel Roster</title>
+  <link rel="stylesheet" href="css/design-tokens.css">
+  <link rel="stylesheet" href="css/components.css">
+  <style>
+    .people-layout {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 1.5rem;
+      min-height: calc(100vh - 120px);
+    }
+
+    @media (max-width: 960px) {
+      .people-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Survivors Grid */
+    .survivors-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 1rem;
+      align-content: start;
+    }
+
+    .survivor-card {
+      background: var(--af-bg-surface);
+      border: 1px solid var(--af-border-subtle);
+      padding: 1rem;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      position: relative;
+    }
+
+    .survivor-card:hover {
+      border-color: var(--af-crimson-core);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    }
+
+    .survivor-card.selected {
+      border-color: var(--af-crimson-bright);
+      background: rgba(186, 26, 26, 0.08);
+    }
+
+    .survivor-card.deceased {
+      opacity: 0.55;
+      filter: grayscale(80%);
+      border-style: dashed;
+    }
+
+    .survivor-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 0.5rem;
+    }
+
+    .survivor-name {
+      font-family: var(--af-font-serif);
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: var(--af-ivory-primary);
+    }
+
+    .survivor-badge {
+      font-size: 0.68rem;
+      padding: 0.15rem 0.4rem;
+      text-transform: uppercase;
+      font-family: var(--af-font-mono);
+      font-weight: 700;
+      letter-spacing: 0.05em;
+    }
+
+    .badge-alive {
+      background: rgba(30, 142, 62, 0.2);
+      color: #81c995;
+      border: 1px solid #1e8e3e;
+    }
+
+    .badge-dead {
+      background: rgba(186, 26, 26, 0.2);
+      color: var(--af-crimson-bright);
+      border: 1px solid var(--af-crimson-core);
+    }
+
+    /* Vitals mini bars */
+    .vital-bar-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.35rem;
+      font-size: 0.75rem;
+    }
+
+    .vital-label {
+      width: 48px;
+      color: var(--af-text-dim);
+      font-family: var(--af-font-mono);
+    }
+
+    .vital-bar-track {
+      flex: 1;
+      height: 4px;
+      background: var(--af-bg-overlay);
+      border: 1px solid var(--af-border-subtle);
+      overflow: hidden;
+    }
+
+    .vital-bar-fill {
+      height: 100%;
+      background: var(--af-ivory-dim);
+    }
+
+    .vital-bar-fill.critical {
+      background: var(--af-crimson-bright);
+    }
+
+    /* Dossier Detail Inspector */
+    .dossier-panel {
+      background: var(--af-bg-surface);
+      border: 1px solid var(--af-border-subtle);
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .dossier-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.4rem 0;
+      border-bottom: 1px dashed var(--af-border-subtle);
+      font-size: 0.85rem;
+    }
+
+    .dossier-row:last-child {
+      border-bottom: none;
+    }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-brand">
+      <div class="brand-title">AFTERFALL</div>
+      <div class="brand-subtitle">SURVIVOR PERSONNEL ROSTER</div>
+    </div>
+
+    <nav class="header-nav">
+      <a href="story.html" class="nav-link">STORY</a>
+      <a href="people.html" class="nav-link active">PEOPLE</a>
+      <a href="records.html" class="nav-link">RECORDS</a>
+    </nav>
+
+    <div class="status-indicators">
+      <div class="status-pill status-running" id="survivor-count-pill">-- SURVIVORS</div>
+    </div>
+  </header>
+
+  <main class="main-container">
+    <div class="section-banner">
+      <span>RESIDENT PERSONNEL DIRECTORY — BIOMETRIC REGISTER</span>
+      <span class="mono text-dim" id="filter-summary">SHOWING ALL SURVIVORS</span>
+    </div>
+
+    <div class="people-layout">
+      <!-- Grid of Survivor Cards -->
+      <section class="survivors-grid" id="survivors-grid">
+        <div class="text-dim text-sm" style="padding: 1rem;">Loading resident records...</div>
+      </section>
+
+      <!-- Right Column: Detail Dossier Inspector -->
+      <aside class="dossier-panel" id="dossier-panel">
+        <div class="panel-header" style="color: var(--af-crimson-core);">INDIVIDUAL DOSSIER</div>
+        <div id="dossier-content">
+          <p class="text-dim text-sm" style="font-style: italic;">
+            Select a survivor from the personnel registry to review psych-eval, biological vitals, and relationship matrix.
+          </p>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <script src="js/api.js"></script>
+  <script src="js/people.js"></script>
+</body>
+</html>

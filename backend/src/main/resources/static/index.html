@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AFTERFALL — The Last Days of Humanity</title>
+  <link rel="stylesheet" href="/css/design-tokens.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <style>
+    .hero-container {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      min-height: 85vh;
+      text-align: center;
+      padding: 2rem;
+      position: relative;
+    }
+
+    .monogatari-cross {
+      position: absolute;
+      width: 1px;
+      height: 100%;
+      background: linear-gradient(to bottom, transparent, var(--border-stark), transparent);
+      left: 50%;
+      top: 0;
+      z-index: 0;
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 1;
+      max-width: 800px;
+    }
+
+    .title-large {
+      font-family: var(--font-serif);
+      font-size: 5rem;
+      font-weight: 900;
+      letter-spacing: 0.6rem;
+      text-transform: uppercase;
+      line-height: 1;
+      margin-bottom: 0.5rem;
+      color: var(--ivory);
+    }
+
+    .title-sub {
+      font-family: var(--font-mono);
+      font-size: 1.1rem;
+      letter-spacing: 0.25rem;
+      color: var(--crimson);
+      text-transform: uppercase;
+      margin-bottom: 3rem;
+    }
+
+    .quote-box {
+      border: 1px solid var(--border-stark);
+      padding: 1.5rem 2rem;
+      background: rgba(20, 22, 20, 0.7);
+      margin-bottom: 3rem;
+      font-family: var(--font-serif);
+      font-style: italic;
+      font-size: 1.35rem;
+      color: var(--ivory-dim);
+      border-left: 3px solid var(--crimson);
+      text-align: left;
+    }
+
+    .experiment-meta {
+      display: flex;
+      justify-content: space-around;
+      border-top: 1px solid var(--border-stark);
+      border-bottom: 1px solid var(--border-stark);
+      padding: 1rem 0;
+      margin-bottom: 3rem;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--ivory-dim);
+      text-transform: uppercase;
+    }
+
+    .meta-val {
+      color: var(--ivory);
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="brand-mark">
+      <span class="brand-title">AFTERFALL</span>
+      <span class="brand-sub">Observation Node 01</span>
+    </div>
+    <div class="connection-indicator">
+      <span class="indicator-dot" id="connDot"></span>
+      <span id="connText">CONNECTING...</span>
+    </div>
+  </header>
+
+  <main class="hero-container">
+    <div class="monogatari-cross"></div>
+    <div class="hero-content">
+      <h1 class="title-large">AFTERFALL</h1>
+      <p class="title-sub">The Last Days of Humanity</p>
+
+      <div class="quote-box">
+        "They thought they were surviving the apocalypse.<br>
+        They were participating in an experiment."
+      </div>
+
+      <div class="experiment-meta">
+        <div>PROTOCOL: <span class="meta-val">OBSERVER-V1</span></div>
+        <div>POPULATION: <span class="meta-val" id="popCount">25 SURVIVORS</span></div>
+        <div>CHAPTER: <span class="meta-val" id="chapterStatus">AWAITING COMMENCE</span></div>
+      </div>
+
+      <div>
+        <a href="/story.html" class="btn btn-crimson" style="padding: 1.1rem 2.5rem; font-size: 1rem;">
+          [ INITIATE OBSERVATION PROTOCOL ]
+        </a>
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/api.js"></script>
+  <script>
+    async function checkStatus() {
+      try {
+        const state = await API.get('/api/state');
+        document.getElementById('connDot').classList.remove('offline');
+        document.getElementById('connText').textContent = 'SYSTEMS ONLINE';
+        document.getElementById('popCount').textContent = `${state.aliveSurvivors} SURVIVORS`;
+        document.getElementById('chapterStatus').textContent = state.chapter.toUpperCase();
+      } catch (e) {
+        document.getElementById('connDot').classList.add('offline');
+        document.getElementById('connText').textContent = 'BACKEND OFFLINE';
+      }
+    }
+    checkStatus();
+  </script>
+</body>
+</html>

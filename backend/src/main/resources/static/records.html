@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AfterFall — Archival Records & Distortions</title>
+  <link rel="stylesheet" href="css/design-tokens.css">
+  <link rel="stylesheet" href="css/components.css">
+  <style>
+    .records-table-container {
+      background: var(--af-bg-surface);
+      border: 1px solid var(--af-border-subtle);
+      overflow-x: auto;
+      margin-top: 1rem;
+    }
+
+    .records-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+      text-align: left;
+    }
+
+    .records-table th {
+      background: var(--af-bg-overlay);
+      color: var(--af-ivory-dim);
+      font-family: var(--af-font-mono);
+      font-size: 0.72rem;
+      padding: 0.75rem 1rem;
+      border-bottom: 2px solid var(--af-border-subtle);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .records-table td {
+      padding: 0.85rem 1rem;
+      border-bottom: 1px solid var(--af-border-subtle);
+      vertical-align: top;
+    }
+
+    .records-table tr:hover {
+      background: rgba(186, 26, 26, 0.04);
+    }
+
+    .truth-col {
+      color: var(--af-ivory-primary);
+      font-family: var(--af-font-serif);
+      width: 38%;
+      border-right: 1px dashed var(--af-border-subtle);
+    }
+
+    .altered-col {
+      color: var(--af-crimson-bright);
+      font-family: var(--af-font-sans);
+      width: 38%;
+      background: rgba(186, 26, 26, 0.03);
+    }
+
+    .status-badge {
+      display: inline-block;
+      font-family: var(--af-font-mono);
+      font-size: 0.68rem;
+      padding: 0.2rem 0.5rem;
+      border: 1px solid currentColor;
+      text-transform: uppercase;
+    }
+
+    .status-approved {
+      color: var(--af-crimson-bright);
+      border-color: var(--af-crimson-core);
+      background: rgba(186, 26, 26, 0.15);
+    }
+
+    .status-rejected {
+      color: var(--af-text-dim);
+      border-color: var(--af-border-subtle);
+    }
+
+    .status-pending {
+      color: #ffd700;
+      border-color: #ffd700;
+      background: rgba(255, 215, 0, 0.1);
+    }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-brand">
+      <div class="brand-title">AFTERFALL</div>
+      <div class="brand-subtitle">AUDIT ARCHIVE & DISTORTION COMPARATOR</div>
+    </div>
+
+    <nav class="header-nav">
+      <a href="story.html" class="nav-link">STORY</a>
+      <a href="people.html" class="nav-link">PEOPLE</a>
+      <a href="records.html" class="nav-link active">RECORDS</a>
+    </nav>
+
+    <div class="status-indicators">
+      <div class="status-pill status-running" id="archived-count-pill">-- RECORDS LOADED</div>
+    </div>
+  </header>
+
+  <main class="main-container">
+    <div class="section-banner">
+      <span>OBSERVER INTERVENTION ARCHIVE — DUAL DISCLOSURE MANIFEST</span>
+      <span class="mono text-dim">STAGE 1 RECOVERED FOUNDATION</span>
+    </div>
+
+    <div class="panel-box" style="margin-top: 1rem;">
+      <div class="panel-header" style="color: var(--af-crimson-core);">ARCHIVAL FORENSICS OVERVIEW</div>
+      <p class="text-ivory text-sm" style="line-height: 1.6; max-width: 800px;">
+        The table below juxtaposes the <strong class="text-ivory">Ground Truth</strong> captured by the simulation engine against the <strong class="text-crimson">Altered Observer Report</strong> sanitized or redirected by autonomous Observer AI directives.
+      </p>
+    </div>
+
+    <div class="records-table-container">
+      <table class="records-table">
+        <thead>
+          <tr>
+            <th style="width: 80px;">TICK</th>
+            <th style="width: 120px;">SUBJECT</th>
+            <th>GROUND TRUTH (ACTUAL EVENT)</th>
+            <th>OBSERVER DISTORTION (SANITY REPORT)</th>
+            <th style="width: 100px;">STATUS</th>
+          </tr>
+        </thead>
+        <tbody id="records-table-body">
+          <tr>
+            <td colspan="5" class="text-dim text-center" style="padding: 2rem;">Loading audit records...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <script src="js/api.js"></script>
+  <script src="js/records.js"></script>
+</body>
+</html>

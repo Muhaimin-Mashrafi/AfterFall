@@ -1,0 +1,304 @@
+/* Monogatari Structural Components & Geometric Panels */
+
+/* Top Navigation Header */
+.site-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 2.5rem;
+  border-bottom: 1px solid var(--border-stark);
+  background: var(--bg-surface);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.brand-mark {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.brand-title {
+  font-family: var(--font-serif);
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: 0.25rem;
+  color: var(--ivory);
+  text-transform: uppercase;
+}
+
+.brand-sub {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.1rem;
+  color: var(--crimson);
+  text-transform: uppercase;
+}
+
+.nav-links {
+  display: flex;
+  gap: 2rem;
+  list-style: none;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08rem;
+}
+
+.nav-links a {
+  padding-bottom: 0.25rem;
+  position: relative;
+}
+
+.nav-links a.active::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background-color: var(--crimson);
+}
+
+/* Sharp Geometric Buttons */
+.btn {
+  background: transparent;
+  color: var(--ivory);
+  border: 1px solid var(--border-stark);
+  padding: 0.65rem 1.4rem;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1rem;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.btn:hover:not(:disabled) {
+  border-color: var(--crimson);
+  color: var(--ivory);
+  background: rgba(186, 26, 26, 0.15);
+}
+
+.btn-crimson {
+  background: var(--crimson);
+  border-color: var(--crimson);
+  color: var(--ivory);
+}
+
+.btn-crimson:hover:not(:disabled) {
+  background: var(--crimson-hover);
+  border-color: var(--crimson-hover);
+  box-shadow: 0 0 15px var(--crimson-glow);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Section Title with Monogatari Graphic Accent */
+.section-banner {
+  border-left: 4px solid var(--crimson);
+  padding-left: 1.25rem;
+  margin-bottom: 2rem;
+}
+
+.section-banner h2 {
+  font-family: var(--font-serif);
+  font-size: 2.25rem;
+  letter-spacing: 0.1rem;
+  text-transform: uppercase;
+}
+
+.section-banner p {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--ivory-dim);
+  text-transform: uppercase;
+  margin-top: 0.25rem;
+}
+
+/* Disconnect / Connection Alarm Pill */
+.connection-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--ivory-dim);
+}
+
+.indicator-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--status-alive);
+}
+
+.indicator-dot.offline {
+  background-color: var(--crimson);
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.3; }
+  100% { opacity: 1; }
+}
+
+/* Common App Layout & Utility Classes */
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 2.5rem;
+  border-bottom: 1px solid var(--border-stark);
+  background: var(--bg-surface);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.header-brand {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.brand-subtitle {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.1rem;
+  color: var(--crimson);
+  text-transform: uppercase;
+}
+
+.header-nav {
+  display: flex;
+  gap: 2rem;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08rem;
+}
+
+.nav-link {
+  color: var(--ivory-dim);
+  text-decoration: none;
+  padding-bottom: 0.25rem;
+  position: relative;
+  transition: color 0.15s ease;
+}
+
+.nav-link:hover, .nav-link.active {
+  color: var(--crimson);
+}
+
+.nav-link.active::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background-color: var(--crimson);
+}
+
+.status-indicators {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.status-pill {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  padding: 0.25rem 0.65rem;
+  border: 1px solid var(--border-stark);
+  background: var(--bg-deep);
+  color: var(--ivory-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05rem;
+}
+
+.status-pill.status-running {
+  border-color: var(--status-alive);
+  color: var(--status-alive);
+}
+
+.status-pill.status-paused {
+  border-color: #d4a373;
+  color: #d4a373;
+}
+
+.status-pill.status-connecting {
+  border-color: #e9c46a;
+  color: #e9c46a;
+}
+
+.status-pill.status-offline {
+  border-color: var(--crimson);
+  color: var(--crimson);
+}
+
+.main-container {
+  padding: 1.5rem 2.5rem;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.panel-box {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-stark);
+  padding: 1.25rem;
+}
+
+.panel-header {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--crimson);
+  letter-spacing: 0.1rem;
+  text-transform: uppercase;
+  margin-bottom: 0.85rem;
+  font-weight: 700;
+}
+
+.btn-primary {
+  background: var(--crimson);
+  border-color: var(--crimson);
+  color: var(--ivory);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--crimson-hover);
+  border-color: var(--crimson-hover);
+  box-shadow: 0 0 15px var(--crimson-glow);
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--ivory);
+  border: 1px solid var(--border-stark);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  border-color: var(--crimson);
+  background: rgba(186, 26, 26, 0.15);
+}
+
+/* Utilities */
+.mono { font-family: var(--font-mono); }
+.font-bold { font-weight: bold; }
+.text-ivory { color: var(--ivory); }
+.text-crimson { color: var(--crimson); }
+.text-dim { color: var(--ivory-dim); }
+.text-sm { font-size: 0.85rem; }
+.text-xs { font-size: 0.75rem; }
+

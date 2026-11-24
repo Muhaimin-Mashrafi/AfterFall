@@ -5,8 +5,8 @@ This file is the handoff point between Claude Code sessions. Update it after eve
 ## Current status
 - Project: AfterFall - The Last Days of Humanity
 - Canonical specification: `docs/blueprint/AfterFall-Blueprint-Revised-Solo.md`
-- Current milestone: M9 complete and audited (Spring Boot, PostgreSQL 17, Persistence Interfaces and Asynchronous Recorder: EventRecorder and RunRepository persistence ports; InMemoryEventRecorder and InMemoryRunRepository; 7 JPA entities and matching Spring Data repositories; JpaPostgresRunRepository and JpaEventRecorder verified against live PostgreSQL 17.12; shared abstract contract test suites; PersistenceConfiguration wiring EventBus automatically to AsyncEventRecorder; AsyncEventRecorder with dual lossless critical / bounded minor queues, 500ms slow-recorder isolation, queue overflow accounting, writeLock synchronized draining, automatic in-memory fallback on failure, clean shutdown critical flush, no thread leaks, and 274 total passing tests). Awaiting review to proceed to M10.
-- Application code: Spring Boot skeleton, domain models, autonomous behaviors, action commands, 4-worker multithreaded simulation engine, deterministic merge, batch rollback, lifecycle state management, resource pools, crises, ObserverAI, EventBus fan-out, template-driven Narrator, Choice moments & consequence application, threshold-driven Chapter policies, and dual-adapter persistence with asynchronous recording
+- Current milestone: M10 complete and verified (Story-first frontend: four screens index.html, story.html, people.html, records.html; REST controllers for simulation state, lifecycle controls, story captions, metrics, survivors roster/dossier, observer records audit; STOMP WebSocket broadcasting over SockJS at /ws; vanilla JavaScript and Quiet Cinematic Minimalism design token styling; 280 total passing tests; live Spring Boot verified with HTTP REST and WebSocket handshakes). Ready for M11.
+- Application code: Spring Boot skeleton, domain models, autonomous behaviors, action commands, 4-worker multithreaded simulation engine, deterministic merge, batch rollback, lifecycle state management, resource pools, crises, ObserverAI, EventBus fan-out, template-driven Narrator, Choice moments & consequence application, threshold-driven Chapter policies, dual-adapter persistence with asynchronous recording, and Story-First HTML/CSS/JS web frontend.
 - Last updated: 2026-11-24
 
 ## Environment (user-reported)
@@ -45,7 +45,7 @@ This file is the handoff point between Claude Code sessions. Update it after eve
 | M7 | EventBus and Narrator with 40+ templates | Complete (2026-11-23) |
 | M8 | Choices, consequences and four threshold-driven chapters | Complete (2026-11-24) |
 | M9 | Spring Boot, PostgreSQL, persistence interfaces and async recorder | Complete (2026-11-24) |
-| M10 | Story-first frontend: four core pages plus operator controls | Not started |
+| M10 | Story-first frontend: four core pages plus operator controls | Complete (2026-11-24) |
 | M11 | Recovered records and final recap | Not started |
 | M12 | Integration, tests, UML, docs and checkpoint demo | Not started |
 | M13 | Feature freeze, bug bash, three rehearsals and fallback recording | Not started |
@@ -83,7 +83,38 @@ This file is the handoff point between Claude Code sessions. Update it after eve
 - None. M0 through M7 completed and verified (222 passing tests).
 - Awaiting user approval on M7 completion to proceed to M8 (Choices, consequences and four threshold-driven chapters).
 
-## Latest completed task: M7 - EventBus and Narrator (40+ templates) (2026-11-23)
+## Latest completed task: M10 - Story-First Frontend (Four Screens + Operator Controls) (2026-11-24)
+Implemented REST API, WebSocket/STOMP bridge, and vanilla HTML/CSS/JavaScript interface following `docs/desgin/VISUAL_DIRECTION.md` and `docs/blueprint/AfterFall-Blueprint-Revised-Solo.md`.
+
+**Backend Components Created & Enhanced**
+- **Authoritative Application Service (`com.afterfall.application`):**
+  - `SimulationService`: Manages single Spring-managed `SimulationEngine`, domain `World`, `WorldClock`, `TickCoordinator`, `ObserverAI`, `ChoiceCoordinator`, `ChapterManager`, and `Narrator`. Provides thread-safe methods for state retrieval, lifecycle control (`start`, `pause`, `resume`, `stepTick`), choice submission, metrics aggregation, survivor projection, and observer audit records.
+  - Decoupled `StoryCaption` notification mechanism via `captionListeners` without treating captions as raw simulation domain events.
+- **REST API Endpoints (`com.afterfall.web`):**
+  - `SimulationApiController`: `/api/state` (GET), `/api/sim/start|pause|resume|step` (POST), `/api/survivors` (GET), `/api/survivors/{id}` (GET).
+  - `StoryApiController`: `/api/story` (GET), `/api/choices/{choiceId}` (POST).
+  - `ObserverApiController`: `/api/records` (GET), `/api/interventions/{id}/approve|reject` (POST).
+  - `MetricsApiController`: `/api/metrics` (GET).
+- **Data Transfer Objects (`com.afterfall.web.dto`):**
+  - `StateResponse`, `StoryResponse`, `MetricsResponse`, `RecordsResponse`, `SurvivorDto`, `ChoiceSelectionRequest`, `PendingChoiceDto`, `ChoiceOptionDto`, `InterventionRecordDto`.
+- **WebSocket Infrastructure (`com.afterfall.config`, `com.afterfall.web`):**
+  - `WebSocketConfig`: Configures STOMP endpoint `/ws` with SockJS fallback and destination prefix `/topic`.
+  - `WebSocketBroadcaster`: Listens to `SimulationService` caption generation and broadcasts to `/topic/captions` and simulation events to `/topic/events`.
+
+**Frontend Screens & Assets (`backend/src/main/resources/static/`)**
+- `index.html`: Atmospheric prologue entry screen with status indicators and live backend health detection.
+- `story.html`: Main observation deck with simulation lifecycle controls, tick counter, chapter banner, live chronicler stream, stockpile/population metrics, observer intervention directives, and choice moment modal.
+- `people.html`: Survivor directory grid with biometric status (alive/deceased badges, health/hunger/thirst gauges) and detailed dossier inspector.
+- `records.html`: Dual-disclosure forensic comparator juxtaposing ground truth against sanitized Observer reports.
+- `css/design-tokens.css` & `css/components.css`: Quiet Cinematic Minimalism palette (`#0B0C0B`, `#BA1A1A`, `#ECE8E1`), typography roles, and geometric HUD layout.
+- `js/api.js`, `js/ws.js`, `js/story.js`, `js/people.js`, `js/records.js`: Vanilla JavaScript API client and lightweight STOMP client with auto-reconnect.
+
+**Tests Verified**
+- `WebControllersTest`: 6 tests covering state retrieval, tick step execution, survivor rosters, story captions, observer audit records, and metrics.
+- Full Maven test suite: **280 tests run, 0 failures, 0 errors, 0 skipped**.
+- Live Spring Boot runtime: Successfully verified with PostgreSQL 17 connection, HTTP REST requests, and WebSocket handshake.
+
+## Previous completed task: M9 - Spring Boot, PostgreSQL 17, Persistence Interfaces and Asynchronous Recorder (2026-11-24)
 Implemented in plain Java across `com.afterfall.events` and `com.afterfall.narrator`; no framework imports (verified by boundary and suite tests).
 
 **Classes created & enhanced**

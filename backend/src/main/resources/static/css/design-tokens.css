@@ -1,0 +1,72 @@
+:root {
+  /* Monogatari / Quiet Cinematic Minimalism Palette */
+  --bg-deep: #0B0C0B;
+  --bg-surface: #141614;
+  --bg-panel: #1A1C1A;
+  --bg-elevated: #242624;
+
+  --crimson: #BA1A1A;
+  --crimson-hover: #D62222;
+  --crimson-glow: rgba(186, 26, 26, 0.35);
+
+  --ivory: #ECE8E1;
+  --ivory-dim: #A6A29A;
+  --ivory-faint: rgba(236, 232, 225, 0.1);
+
+  --border-stark: #3A3C38;
+  --border-faint: #202220;
+  --border-crimson: #BA1A1A;
+
+  --status-alive: #5A8F68;
+  --status-dead: #7A3B37;
+  --status-crisis: #D62222;
+
+  /* Typography */
+  --font-serif: "Cormorant Garamond", "Cinzel", "Playfair Display", Georgia, serif;
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "IBM Plex Mono", "SF Mono", Consolas, "Courier New", monospace;
+
+  /* Aliases for screen styles */
+  --af-bg-deep: var(--bg-deep);
+  --af-bg-surface: var(--bg-surface);
+  --af-bg-overlay: var(--bg-panel);
+  --af-bg-elevated: var(--bg-elevated);
+  --af-crimson-core: var(--crimson);
+  --af-crimson-bright: var(--crimson-hover);
+  --af-crimson-subtle: var(--crimson-glow);
+  --af-ivory-primary: var(--ivory);
+  --af-ivory-dim: var(--ivory-dim);
+  --af-text-dim: var(--ivory-dim);
+  --af-border-subtle: var(--border-stark);
+  --af-border-faint: var(--border-faint);
+  --af-font-serif: var(--font-serif);
+  --af-font-sans: var(--font-sans);
+  --af-font-mono: var(--font-mono);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-deep);
+  color: var(--ivory);
+  font-family: var(--font-sans);
+  line-height: 1.5;
+  min-height: 100vh;
+  overflow-x: hidden;
+  background-image: radial-gradient(circle at 50% 10%, rgba(26, 28, 26, 0.5) 0%, transparent 80%);
+}
+
+/* Links */
+a {
+  color: var(--ivory-dim);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+a:hover, a.active {
+  color: var(--crimson);
+}

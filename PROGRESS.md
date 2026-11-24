@@ -5,9 +5,9 @@ This file is the handoff point between Claude Code sessions. Update it after eve
 ## Current status
 - Project: AfterFall - The Last Days of Humanity
 - Canonical specification: `docs/blueprint/AfterFall-Blueprint-Revised-Solo.md`
-- Current milestone: M10 complete and verified (Story-first frontend: four screens index.html, story.html, people.html, records.html; REST controllers for simulation state, lifecycle controls, story captions, metrics, survivors roster/dossier, observer records audit; STOMP WebSocket broadcasting over SockJS at /ws; vanilla JavaScript and Quiet Cinematic Minimalism design token styling; 280 total passing tests; live Spring Boot verified with HTTP REST and WebSocket handshakes). Ready for M11.
-- Application code: Spring Boot skeleton, domain models, autonomous behaviors, action commands, 4-worker multithreaded simulation engine, deterministic merge, batch rollback, lifecycle state management, resource pools, crises, ObserverAI, EventBus fan-out, template-driven Narrator, Choice moments & consequence application, threshold-driven Chapter policies, dual-adapter persistence with asynchronous recording, and Story-First HTML/CSS/JS web frontend.
-- Last updated: 2026-11-24
+- Current milestone: M11 complete and verified (Hidden Records, Evidence Discovery and Final Recap: EvidenceItem with DiscrepancyType classification, pure Java EvidenceService, EvidenceDiscoveryRepository with in-memory and PostgreSQL/JPA persistence, duplicate discovery prevention, SimulationService Chapter III integration, FinalRecording with mandatory closing line, pure RecapGenerator consuming immutable snapshots, REST endpoints /api/records/evidence and /api/recap, enhanced records.html and records.js with dual report comparison, cryptographic decryption investigation, and cinematic Final Recording modal, 294 passing tests). Ready for M12.
+- Application code: Spring Boot skeleton, domain models, autonomous behaviors, action commands, 4-worker multithreaded simulation engine, deterministic merge, batch rollback, lifecycle state management, resource pools, crises, ObserverAI, EventBus fan-out, template-driven Narrator, Choice moments & consequence application, threshold-driven Chapter policies, dual-adapter persistence with asynchronous recording, Story-First HTML/CSS/JS web frontend, and Hidden Records & Final Documentary Recap.
+- Last updated: 2026-11-25
 
 ## Environment (user-reported)
 - Assistant: Google Antigravity
@@ -46,7 +46,7 @@ This file is the handoff point between Claude Code sessions. Update it after eve
 | M8 | Choices, consequences and four threshold-driven chapters | Complete (2026-11-24) |
 | M9 | Spring Boot, PostgreSQL, persistence interfaces and async recorder | Complete (2026-11-24) |
 | M10 | Story-first frontend: four core pages plus operator controls | Complete (2026-11-24) |
-| M11 | Recovered records and final recap | Not started |
+| M11 | Recovered records and final recap | Complete (2026-11-25) |
 | M12 | Integration, tests, UML, docs and checkpoint demo | Not started |
 | M13 | Feature freeze, bug bash, three rehearsals and fallback recording | Not started |
 | M14 (SHOULD) | Audience voting | Not started |

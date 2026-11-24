@@ -10,8 +10,17 @@ import com.afterfall.narrator.StoryCaption;
 import com.afterfall.observer.InterventionRecord;
 import com.afterfall.observer.InterventionStatus;
 import com.afterfall.observer.ObserverAI;
+import com.afterfall.application.persistence.EvidenceDiscoveryRepository;
 import com.afterfall.application.persistence.EventRecorder;
+import com.afterfall.application.persistence.RunCheckpoint;
+import com.afterfall.application.persistence.RunId;
+import com.afterfall.application.persistence.RunMetadata;
+import com.afterfall.application.persistence.RunRecapInputs;
 import com.afterfall.application.persistence.RunRepository;
+import com.afterfall.recap.EvidenceItem;
+import com.afterfall.recap.EvidenceService;
+import com.afterfall.recap.RecapGenerator;
+import com.afterfall.recap.RunRecap;
 import com.afterfall.simulation.*;
 import com.afterfall.web.dto.*;
 import org.springframework.stereotype.Service;
@@ -38,13 +47,20 @@ public class SimulationService {
     private final ObserverAI observerAI;
     private final RunRepository runRepository;
     private final EventRecorder eventRecorder;
+    private final EvidenceDiscoveryRepository evidenceRepo;
+    private final EvidenceService evidenceService;
+    private final RecapGenerator recapGenerator;
+    private final RunId currentRunId = RunId.of("run-1");
 
     private final List<Consumer<StoryCaption>> captionListeners = new CopyOnWriteArrayList<>();
     private int lastCaptionCount = 0;
 
-    public SimulationService(RunRepository runRepository, EventRecorder eventRecorder) {
-        this.runRepository = runRepository;
-        this.eventRecorder = eventRecorder;
+    public SimulationService(RunRepository runRepository, EventRecorder eventRecorder, EvidenceDiscoveryRepository evidenceRepo) {
+        this.runRepository = Objects.requireNonNull(runRepository, "runRepository");
+        this.eventRecorder = Objects.requireNonNull(eventRecorder, "eventRecorder");
+        this.evidenceRepo = Objects.requireNonNull(evidenceRepo, "evidenceRepo");
+        this.evidenceService = new EvidenceService();
+        this.recapGenerator = new RecapGenerator(evidenceService, new com.afterfall.recap.FinalRecordingGenerator());
 
         this.world = InitialPopulation.createDefaultWorld("Haven-1");
         this.clock = new WorldClock(4);
@@ -53,6 +69,17 @@ public class SimulationService {
         this.choiceCoordinator = new ChoiceCoordinator();
         this.chapterManager = new ChapterManager();
         this.observerAI = new ObserverAI();
+
+        // Save initial run metadata
+        this.runRepository.saveRun(new RunMetadata(
+                currentRunId,
+                TickCoordinator.DEFAULT_RUN_SEED,
+                world.settlement().population(),
+                java.time.Instant.now(),
+                null,
+                chapterManager.currentChapter().name(),
+                SimulationLifecycle.PAUSED.name()
+        ));
 
         // Register narrator to EventBus
         this.eventBus.register(narrator);
@@ -121,11 +148,12 @@ public class SimulationService {
             engine.tick();
         }
 
-        // Notify caption listeners of newly generated captions
+        // Notify caption listeners of newly generated captions and persist them
         List<StoryCaption> allCaptions = narrator.captions();
         if (allCaptions.size() > lastCaptionCount) {
             for (int i = lastCaptionCount; i < allCaptions.size(); i++) {
                 StoryCaption c = allCaptions.get(i);
+                runRepository.recordCaption(currentRunId, c);
                 for (Consumer<StoryCaption> l : captionListeners) {
                     try {
                         l.accept(c);
@@ -134,6 +162,37 @@ public class SimulationService {
             }
             lastCaptionCount = allCaptions.size();
         }
+
+        // Persist chapter transitions, choices, and checkpoints
+        for (com.afterfall.chapter.ChapterTransition ct : chapterManager.transitionHistory()) {
+            runRepository.recordChapterTransition(currentRunId, ct);
+        }
+        for (com.afterfall.choice.ChoiceRecord cr : choiceCoordinator.decisionLog()) {
+            runRepository.recordChoice(currentRunId, cr);
+        }
+        for (InterventionRecord ir : observerAI.records()) {
+            runRepository.recordIntervention(currentRunId, ir);
+        }
+
+        // Extract and persist available evidence
+        List<EvidenceItem> available = evidenceService.extractAvailableEvidence(observerAI.records());
+        evidenceRepo.saveAllAvailableEvidence(currentRunId, available);
+
+        // Checkpoint macro metrics
+        Settlement set = world.settlement();
+        int alive = (int) set.survivors().stream().filter(Survivor::isAlive).count();
+        int dead = set.population() - alive;
+        runRepository.saveCheckpoint(new RunCheckpoint(
+                currentRunId,
+                clock.tick(),
+                alive,
+                dead,
+                set.resourceStock().resource(ResourceType.FOOD).quantity(),
+                set.resourceStock().resource(ResourceType.WATER).quantity(),
+                set.resourceStock().resource(ResourceType.MEDICINE).quantity(),
+                chapterManager.currentChapter().name(),
+                java.time.Instant.now()
+        ));
 
         return getCurrentState();
     }
@@ -199,6 +258,57 @@ public class SimulationService {
                 ))
                 .toList();
         return new RecordsResponse(dtos);
+    }
+
+    public List<EvidenceItem> getAvailableEvidence() {
+        // Sync any newly produced evidence from recent interventions
+        List<EvidenceItem> extracted = evidenceService.extractAvailableEvidence(observerAI.records());
+        evidenceRepo.saveAllAvailableEvidence(currentRunId, extracted);
+        return evidenceRepo.availableEvidenceForRun(currentRunId);
+    }
+
+    public List<EvidenceItem> getDiscoveredEvidence() {
+        return evidenceRepo.discoveredEvidenceForRun(currentRunId);
+    }
+
+    public Set<String> getDiscoveredEvidenceIds() {
+        return evidenceRepo.discoveredEvidenceIdsForRun(currentRunId);
+    }
+
+    public synchronized boolean discoverEvidence(String evidenceId) {
+        boolean newlyDiscovered = evidenceRepo.markDiscovered(currentRunId, evidenceId);
+        if (newlyDiscovered) {
+            // Integrate with Chapter III discovery threshold
+            chapterManager.recordEvidenceDiscovered();
+        }
+        return newlyDiscovered;
+    }
+
+    public RunRecap getRecap() {
+        // 1. Gather all available evidence from current state
+        List<EvidenceItem> extracted = evidenceService.extractAvailableEvidence(observerAI.records());
+        evidenceRepo.saveAllAvailableEvidence(currentRunId, extracted);
+
+        // 2. Load recap inputs from persistence
+        RunRecapInputs inputs = runRepository.loadRecapInputs(currentRunId);
+
+        // 3. Create immutable snapshots of current survivors to fulfill zero-live-dependency requirement
+        List<com.afterfall.domain.SurvivorSnapshot> snapshots = world.settlement().survivors().stream()
+                .map(com.afterfall.domain.SurvivorSnapshot::from)
+                .toList();
+
+        RunRecapInputs completeInputs = new RunRecapInputs(
+                inputs.runId(),
+                inputs.metadata(),
+                inputs.chapterTransitions(),
+                inputs.choices(),
+                inputs.interventions(),
+                inputs.captions(),
+                inputs.checkpoints(),
+                snapshots
+        );
+
+        return recapGenerator.generate(completeInputs, evidenceRepo.discoveredEvidenceIdsForRun(currentRunId));
     }
 
     public void approveIntervention(String id) {

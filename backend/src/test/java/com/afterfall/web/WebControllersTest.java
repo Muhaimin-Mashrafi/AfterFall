@@ -34,6 +34,9 @@ class WebControllersTest {
     @Autowired
     private MetricsApiController metricsApiController;
 
+    @Autowired
+    private RecapApiController recapApiController;
+
     @Test
     @Order(1)
     @DisplayName("GET /api/state returns current simulation state")
@@ -90,5 +93,33 @@ class WebControllersTest {
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
         assertTrue(response.getBody().aliveSurvivors() > 0);
+    }
+
+    @Test
+    @DisplayName("GET /api/records/evidence returns available evidence items")
+    void testGetEvidence() {
+        ResponseEntity<List<EvidenceDto>> response = observerApiController.getEvidence();
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+    }
+
+    @Test
+    @DisplayName("POST /api/records/evidence/{id}/discover returns 200 with discovery state")
+    void testDiscoverEvidence() {
+        ResponseEntity<java.util.Map<String, Object>> response = observerApiController.discoverEvidence("EV-TEST");
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals("EV-TEST", response.getBody().get("evidenceId"));
+        assertEquals(true, response.getBody().get("discovered"));
+    }
+
+    @Test
+    @DisplayName("GET /api/recap returns run recap with mandatory closing line")
+    void testGetRecap() {
+        ResponseEntity<RecapResponse> response = recapApiController.getRecap();
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertNotNull(response.getBody().finalRecording());
+        assertEquals("The settlement fell silent. The Observer remains active.", response.getBody().finalRecording().closingLine());
     }
 }

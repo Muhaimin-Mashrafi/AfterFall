@@ -81,6 +81,78 @@
       border-color: #ffd700;
       background: rgba(255, 215, 0, 0.1);
     }
+
+    /* Evidence Grid & Investigative Cards */
+    .evidence-section {
+      margin-top: 2rem;
+    }
+
+    .evidence-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+      gap: 1.25rem;
+      margin-top: 1rem;
+    }
+
+    .evidence-card {
+      background: var(--af-bg-surface);
+      border: 1px solid var(--af-border-subtle);
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      transition: all 0.2s ease;
+    }
+
+    .evidence-card.discovered {
+      border-color: var(--af-crimson-core);
+      box-shadow: 0 0 15px rgba(186, 26, 26, 0.2);
+    }
+
+    .evidence-card.undiscovered {
+      opacity: 0.6;
+      border-style: dashed;
+    }
+
+    .recap-modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(11, 12, 11, 0.95);
+      backdrop-filter: blur(8px);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+
+    .recap-modal-backdrop.active {
+      display: flex;
+    }
+
+    .recap-dialog {
+      background: var(--af-bg-surface);
+      border: 2px solid var(--af-crimson-core);
+      max-width: 900px;
+      max-height: 85vh;
+      overflow-y: auto;
+      width: 100%;
+      padding: 2.5rem;
+      position: relative;
+    }
+
+    .closing-line-banner {
+      font-family: var(--af-font-serif);
+      font-size: 1.5rem;
+      font-style: italic;
+      color: var(--af-ivory-primary);
+      text-align: center;
+      padding: 2rem;
+      margin-top: 2rem;
+      border-top: 1px solid var(--af-crimson-core);
+      border-bottom: 1px solid var(--af-crimson-core);
+      background: rgba(186, 26, 26, 0.08);
+    }
   </style>
 </head>
 <body>
@@ -97,6 +169,7 @@
     </nav>
 
     <div class="status-indicators">
+      <button class="btn btn-crimson" id="btn-view-recap" style="font-size: 0.75rem; padding: 0.35rem 0.8rem;">FINAL RECAP</button>
       <div class="status-pill status-running" id="archived-count-pill">-- RECORDS LOADED</div>
     </div>
   </header>
@@ -132,7 +205,46 @@
         </tbody>
       </table>
     </div>
+
+    <!-- M11 Forensic Evidence Discovery Section -->
+    <section class="evidence-section">
+      <div class="section-banner" style="margin-top: 2rem;">
+        <span>INVESTIGATIVE EVIDENCE DISCOVERY — CLASSIFIED ANOMALIES</span>
+        <span class="mono text-dim" id="evidence-count-label">0 DISCOVERED</span>
+      </div>
+
+      <p class="text-ivory text-sm" style="line-height: 1.6; max-width: 800px;">
+        Uncovered forensic evidence exposes systemic distortions engineered by the Observer. Click <strong>INVESTIGATE</strong> to decode encrypted discrepancies and expose Observer intervention patterns toward Chapter III.
+      </p>
+
+      <div class="evidence-grid" id="evidence-grid">
+        <div class="text-dim text-sm" style="padding: 1rem;">Scanning for Observer forensic anomalies...</div>
+      </div>
+    </section>
   </main>
+
+  <!-- M11 Final Recording & Run Recap Modal -->
+  <div class="recap-modal-backdrop" id="recap-modal">
+    <div class="recap-dialog">
+      <div class="panel-header" style="display: flex; justify-content: space-between; align-items: baseline;">
+        <span>DOCUMENTARY RUN RECAP & FINAL RECORDING</span>
+        <button class="btn btn-secondary" id="btn-close-recap" style="padding: 0.2rem 0.6rem; font-size: 0.75rem;">CLOSE</button>
+      </div>
+
+      <div id="recap-summary-content" style="margin-top: 1.5rem;">
+        <!-- Dynamically rendered -->
+      </div>
+
+      <div id="recap-scenes-container" style="margin-top: 2rem;">
+        <div class="panel-header" style="color: var(--af-crimson-core);">CHRONOLOGICAL SCENE RECORDINGS</div>
+        <div id="scenes-list" style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.75rem;"></div>
+      </div>
+
+      <div class="closing-line-banner" id="recap-closing-line">
+        "The settlement fell silent. The Observer remains active."
+      </div>
+    </div>
+  </div>
 
   <script src="js/api.js"></script>
   <script src="js/records.js"></script>

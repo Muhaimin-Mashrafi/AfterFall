@@ -9,6 +9,9 @@ import com.afterfall.infrastructure.persistence.inmemory.InMemoryEventRecorder;
 import com.afterfall.infrastructure.persistence.inmemory.InMemoryRunRepository;
 import com.afterfall.infrastructure.persistence.jpa.JpaEventRecorder;
 import com.afterfall.infrastructure.persistence.jpa.JpaPostgresRunRepository;
+import com.afterfall.application.persistence.EvidenceDiscoveryRepository;
+import com.afterfall.infrastructure.persistence.inmemory.InMemoryEvidenceDiscoveryRepository;
+import com.afterfall.infrastructure.persistence.jpa.JpaEvidenceDiscoveryRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
@@ -29,6 +32,17 @@ public class PersistenceConfiguration {
     @Bean
     public InMemoryRunRepository inMemoryRunRepository() {
         return new InMemoryRunRepository();
+    }
+
+    @Bean
+    public InMemoryEvidenceDiscoveryRepository inMemoryEvidenceDiscoveryRepository() {
+        return new InMemoryEvidenceDiscoveryRepository();
+    }
+
+    @Bean
+    @Primary
+    public EvidenceDiscoveryRepository evidenceDiscoveryRepository(JpaEvidenceDiscoveryRepository jpaRepo) {
+        return jpaRepo;
     }
 
     @Bean

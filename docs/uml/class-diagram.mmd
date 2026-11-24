@@ -1331,3 +1331,132 @@ classDiagram
     RunRepository <|.. JpaPostgresRunRepository : implements
     AsyncEventRecorder o-- EventRecorder : decorates
     AsyncEventRecorder ..|> EventSubscriber : implements
+
+    %% ==========================================
+    %% M11 RECAP & EVIDENCE DISCOVERY
+    %% ==========================================
+
+    class DiscrepancyType {
+        <<enumeration>>
+        SUPPRESSED_TRUTH
+        FABRICATED_SHORTAGE
+        DIVISIVE_RUMOUR
+        SELECTIVE_WARNING
+    }
+
+    class EvidenceItem {
+        <<record>>
+        +String evidenceId
+        +long tick
+        +ObserverPolicy policy
+        +String target
+        +String originalReport
+        +String alteredReport
+        +DiscrepancyType discrepancyType
+        +List~EventId~ sourceEventIds
+        +List~SurvivorId~ referencedSurvivorIds
+    }
+
+    class EvidenceService {
+        +classifyDiscrepancy(policy, originalReport, alteredReport) DiscrepancyType
+        +extractEvidence(interventions) List~EvidenceItem~
+    }
+
+    class RecordingScene {
+        <<record>>
+        +long tick
+        +String chapter
+        +String narrativeText
+        +List~EventId~ sourceEventIds
+        +List~SurvivorId~ referencedSurvivorIds
+    }
+
+    class FinalRecording {
+        <<record>>
+        +String runId
+        +long finalTick
+        +String endingChapter
+        +List~RecordingScene~ scenes
+        +String closingLine
+        +MANDATORY_CLOSING_LINE$ = "The settlement fell silent. The Observer remains active."
+    }
+
+    class FinalRecordingGenerator {
+        +generate(runId, finalTick, endingChapter, captions, transitions) FinalRecording
+    }
+
+    class SurvivorOutcome {
+        <<record>>
+        +SurvivorId survivorId
+        +String name
+        +ProfessionType profession
+        +boolean alive
+        +int health
+        +String fateDescription
+    }
+
+    class RunRecap {
+        <<record>>
+        +String runId
+        +long totalTicks
+        +String endingChapter
+        +int initialPopulation
+        +int finalAliveSurvivors
+        +int totalDeceasedSurvivors
+        +Map~String, Integer~ finalResources
+        +List~SurvivorOutcome~ survivorOutcomes
+        +List~RunCheckpoint~ crisisTimeline
+        +List~ChoiceRecord~ choices
+        +List~InterventionRecord~ interventions
+        +List~ChapterTransition~ chapterArc
+        +List~EvidenceItem~ availableEvidence
+        +Set~String~ discoveredEvidenceIds
+        +FinalRecording finalRecording
+    }
+
+    class RecapGenerator {
+        +generateRecap(inputs, availableEvidence, discoveredEvidenceIds) RunRecap
+    }
+
+    class EvidenceDiscoveryRepository {
+        <<interface>>
+        +saveAvailableEvidence(runId, evidence) void
+        +getAvailableEvidence(runId) List~EvidenceItem~
+        +markDiscovered(runId, evidenceId) boolean
+        +getDiscoveredEvidenceIds(runId) Set~String~
+        +isDiscovered(runId, evidenceId) boolean
+        +clear() void
+    }
+
+    class InMemoryEvidenceDiscoveryRepository {
+        -ConcurrentMap~String, ConcurrentMap~String, EvidenceItem~~ available
+        -ConcurrentMap~String, Set~String~~ discovered
+        +saveAvailableEvidence(runId, evidence) void
+        +getAvailableEvidence(runId) List~EvidenceItem~
+        +markDiscovered(runId, evidenceId) boolean
+        +getDiscoveredEvidenceIds(runId) Set~String~
+        +isDiscovered(runId, evidenceId) boolean
+        +clear() void
+    }
+
+    class JpaEvidenceDiscoveryRepository {
+        -SpringDataDiscoveredEvidenceRepository repository
+        -ConcurrentMap~String, ConcurrentMap~String, EvidenceItem~~ cache
+        +saveAvailableEvidence(runId, evidence) void
+        +getAvailableEvidence(runId) List~EvidenceItem~
+        +markDiscovered(runId, evidenceId) boolean
+        +getDiscoveredEvidenceIds(runId) Set~String~
+        +isDiscovered(runId, evidenceId) boolean
+        +clear() void
+    }
+
+    EvidenceDiscoveryRepository <|.. InMemoryEvidenceDiscoveryRepository : implements
+    EvidenceDiscoveryRepository <|.. JpaEvidenceDiscoveryRepository : implements
+    EvidenceItem *-- DiscrepancyType
+    FinalRecording *-- RecordingScene
+    RunRecap *-- FinalRecording
+    RunRecap *-- SurvivorOutcome
+    RunRecap *-- EvidenceItem
+    RecapGenerator ..> RunRecap : produces
+    FinalRecordingGenerator ..> FinalRecording : produces
+    EvidenceService ..> EvidenceItem : extracts

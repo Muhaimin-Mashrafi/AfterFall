@@ -306,7 +306,8 @@ public class JpaPostgresRunRepository implements RunRepository {
                 choicesForRun(runId),
                 interventionsForRun(runId),
                 captionsForRun(runId),
-                checkpointsForRun(runId)
+                checkpointsForRun(runId),
+                Collections.emptyList()
         );
     }
 }

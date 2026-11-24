@@ -1171,3 +1171,163 @@ classDiagram
     ChapterPolicy ..> StoryState : evaluates
     ChapterManager *-- "0..*" ChapterTransition : records
     ChapterManager --> ChapterType : state
+
+    %% ==========================================
+    %% PERSISTENCE & ASYNC RECORDER (Implemented M9)
+    %% ==========================================
+
+    class RunId {
+        <<record>>
+        +String value
+        +of(value)$ RunId
+    }
+
+    class RunMetadata {
+        <<record>>
+        +RunId runId
+        +long seed
+        +int totalSurvivors
+        +Instant startedAt
+        +Instant endedAt
+        +String endingChapter
+        +String status
+        +started(runId, seed, total, startedAt)$ RunMetadata
+        +completed(endedAt, endingChapter, status) RunMetadata
+    }
+
+    class RunCheckpoint {
+        <<record>>
+        +RunId runId
+        +long tick
+        +int aliveSurvivors
+        +int deceasedSurvivors
+        +int foodQuantity
+        +int waterQuantity
+        +int medicineQuantity
+        +String currentChapter
+        +Instant recordedAt
+    }
+
+    class RunRecapInputs {
+        <<record>>
+        +RunId runId
+        +RunMetadata metadata
+        +List~ChapterTransition~ chapterTransitions
+        +List~ChoiceRecord~ choices
+        +List~InterventionRecord~ interventions
+        +List~StoryCaption~ captions
+        +List~RunCheckpoint~ checkpoints
+    }
+
+    class EventRecorder {
+        <<interface>>
+        +record(runId, event) void*
+        +recordAll(runId, events) void*
+        +eventsForRun(runId) List~SimEvent~*
+        +flush() void
+    }
+
+    class RunRepository {
+        <<interface>>
+        +saveRun(metadata) void*
+        +findRun(runId) Optional~RunMetadata~*
+        +saveCheckpoint(checkpoint) void*
+        +checkpointsForRun(runId) List~RunCheckpoint~*
+        +recordChoice(runId, choiceRecord) void*
+        +choicesForRun(runId) List~ChoiceRecord~*
+        +recordIntervention(runId, interventionRecord) void*
+        +interventionsForRun(runId) List~InterventionRecord~*
+        +recordChapterTransition(runId, transition) void*
+        +chapterTransitionsForRun(runId) List~ChapterTransition~*
+        +recordCaption(runId, caption) void*
+        +captionsForRun(runId) List~StoryCaption~*
+        +loadRecapInputs(runId) RunRecapInputs*
+    }
+
+    class InMemoryEventRecorder {
+        -ConcurrentMap~RunId, ConcurrentMap~EventId, SimEvent~~ storage
+        +record(runId, event) void
+        +recordAll(runId, events) void
+        +eventsForRun(runId) List~SimEvent~
+        +clear() void
+    }
+
+    class InMemoryRunRepository {
+        -ConcurrentMap~RunId, RunMetadata~ runs
+        -ConcurrentMap~RunId, List~RunCheckpoint~~ checkpoints
+        -ConcurrentMap~RunId, ConcurrentMap~String, ChoiceRecord~~ choices
+        -ConcurrentMap~RunId, ConcurrentMap~Long, InterventionRecord~~ interventions
+        -ConcurrentMap~RunId, List~ChapterTransition~~ chapters
+        -ConcurrentMap~RunId, ConcurrentMap~Long, StoryCaption~~ captions
+        +saveRun(metadata) void
+        +findRun(runId) Optional~RunMetadata~
+        +saveCheckpoint(checkpoint) void
+        +checkpointsForRun(runId) List~RunCheckpoint~
+        +recordChoice(runId, choiceRecord) void
+        +choicesForRun(runId) List~ChoiceRecord~
+        +recordIntervention(runId, interventionRecord) void
+        +interventionsForRun(runId) List~InterventionRecord~
+        +recordChapterTransition(runId, transition) void
+        +chapterTransitionsForRun(runId) List~ChapterTransition~
+        +recordCaption(runId, caption) void
+        +captionsForRun(runId) List~StoryCaption~
+        +loadRecapInputs(runId) RunRecapInputs
+        +clear() void
+    }
+
+    class JpaEventRecorder {
+        -SpringDataSimulationEventRepository repository
+        +record(runId, event) void
+        +recordAll(runId, events) void
+        +eventsForRun(runId) List~SimEvent~
+        +flush() void
+    }
+
+    class JpaPostgresRunRepository {
+        -SpringDataSimulationRunRepository runRepo
+        -SpringDataRunCheckpointRepository checkpointRepo
+        -SpringDataChoiceRecordRepository choiceRepo
+        -SpringDataInterventionRecordRepository interventionRepo
+        -SpringDataStoryChapterRepository chapterRepo
+        -SpringDataCaptionEntryRepository captionRepo
+        +saveRun(metadata) void
+        +findRun(runId) Optional~RunMetadata~
+        +saveCheckpoint(checkpoint) void
+        +checkpointsForRun(runId) List~RunCheckpoint~
+        +recordChoice(runId, choiceRecord) void
+        +choicesForRun(runId) List~ChoiceRecord~
+        +recordIntervention(runId, interventionRecord) void
+        +interventionsForRun(runId) List~InterventionRecord~
+        +recordChapterTransition(runId, transition) void
+        +chapterTransitionsForRun(runId) List~ChapterTransition~
+        +recordCaption(runId, caption) void
+        +captionsForRun(runId) List~StoryCaption~
+        +loadRecapInputs(runId) RunRecapInputs
+    }
+
+    class AsyncEventRecorder {
+        -EventRecorder primaryTarget
+        -EventRecorder fallbackTarget
+        -RunId defaultRunId
+        -Queue~QueuedItem~ criticalQueue
+        -BlockingQueue~QueuedItem~ minorQueue
+        -AtomicLong droppedMinorCount
+        -AtomicBoolean fallbackActive
+        -Thread writerThread
+        +record(runId, event) void
+        +recordAll(runId, events) void
+        +onEvents(events) void
+        +eventsForRun(runId) List~SimEvent~
+        +flush() void
+        +close() void
+        +droppedMinorCount() long
+        +isFallbackActive() boolean
+    }
+
+    EventRecorder <|.. InMemoryEventRecorder : implements
+    EventRecorder <|.. JpaEventRecorder : implements
+    EventRecorder <|.. AsyncEventRecorder : implements
+    RunRepository <|.. InMemoryRunRepository : implements
+    RunRepository <|.. JpaPostgresRunRepository : implements
+    AsyncEventRecorder o-- EventRecorder : decorates
+    AsyncEventRecorder ..|> EventSubscriber : implements

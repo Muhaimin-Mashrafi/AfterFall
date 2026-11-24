@@ -5,8 +5,8 @@ This file is the handoff point between Claude Code sessions. Update it after eve
 ## Current status
 - Project: AfterFall - The Last Days of Humanity
 - Canonical specification: `docs/blueprint/AfterFall-Blueprint-Revised-Solo.md`
-- Current milestone: M8 complete (Choices, Consequences and Threshold-Driven Chapters: ChoiceMoment, ChoiceOption, ChoiceCoordinator, safe boundary pause/resume, consequence queueing and application in Phase 5g; StoryState snapshot, ChapterManager, ChapterConfig with D_min, D_soft and D_hard guardrails, four sequential ChapterPolicy strategies, ChapterTransition, EventBus integration for CHAPTER_TRANSITION/CHAPTER_FORCED/CHOICE_CONSEQUENCE, dedicated pause/resume boundary tests, 20-seed arc integration test passing without forced backstop transitions, and 234 total passing tests). Awaiting review to proceed to M9.
-- Application code: Spring Boot skeleton, domain models, autonomous behaviors, action commands, 4-worker multithreaded simulation engine, deterministic merge, batch rollback, lifecycle state management, resource pools, crises, ObserverAI, EventBus fan-out, template-driven Narrator, Choice moments & consequence application, and threshold-driven Chapter policies
+- Current milestone: M9 complete and audited (Spring Boot, PostgreSQL 17, Persistence Interfaces and Asynchronous Recorder: EventRecorder and RunRepository persistence ports; InMemoryEventRecorder and InMemoryRunRepository; 7 JPA entities and matching Spring Data repositories; JpaPostgresRunRepository and JpaEventRecorder verified against live PostgreSQL 17.12; shared abstract contract test suites; PersistenceConfiguration wiring EventBus automatically to AsyncEventRecorder; AsyncEventRecorder with dual lossless critical / bounded minor queues, 500ms slow-recorder isolation, queue overflow accounting, writeLock synchronized draining, automatic in-memory fallback on failure, clean shutdown critical flush, no thread leaks, and 274 total passing tests). Awaiting review to proceed to M10.
+- Application code: Spring Boot skeleton, domain models, autonomous behaviors, action commands, 4-worker multithreaded simulation engine, deterministic merge, batch rollback, lifecycle state management, resource pools, crises, ObserverAI, EventBus fan-out, template-driven Narrator, Choice moments & consequence application, threshold-driven Chapter policies, and dual-adapter persistence with asynchronous recording
 - Last updated: 2026-11-24
 
 ## Environment (user-reported)
@@ -44,7 +44,7 @@ This file is the handoff point between Claude Code sessions. Update it after eve
 | M6 | ObserverAI with four MUST policies | Complete (2026-11-23) |
 | M7 | EventBus and Narrator with 40+ templates | Complete (2026-11-23) |
 | M8 | Choices, consequences and four threshold-driven chapters | Complete (2026-11-24) |
-| M9 | Spring Boot, PostgreSQL, persistence interfaces and async recorder | Not started |
+| M9 | Spring Boot, PostgreSQL, persistence interfaces and async recorder | Complete (2026-11-24) |
 | M10 | Story-first frontend: four core pages plus operator controls | Not started |
 | M11 | Recovered records and final recap | Not started |
 | M12 | Integration, tests, UML, docs and checkpoint demo | Not started |

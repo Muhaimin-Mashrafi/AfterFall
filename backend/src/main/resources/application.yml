@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: afterfall-backend
+  datasource:
+    url: ${AFTERFALL_DB_URL:jdbc:postgresql://localhost:5432/afterfall}
+    username: ${AFTERFALL_DB_USER:postgres}
+    password: ${AFTERFALL_DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      connection-timeout: 3000
+      maximum-pool-size: 10
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+        jdbc:
+          batch_size: 50

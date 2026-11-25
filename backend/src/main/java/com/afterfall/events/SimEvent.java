@@ -4,7 +4,6 @@ import com.afterfall.domain.EventId;
 import com.afterfall.domain.RegionId;
 import com.afterfall.domain.SurvivorId;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;

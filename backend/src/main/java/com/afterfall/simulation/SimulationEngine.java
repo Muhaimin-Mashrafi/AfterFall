@@ -3,7 +3,6 @@ package com.afterfall.simulation;
 import com.afterfall.domain.World;
 
 import java.util.Objects;
-import java.util.Optional;
 
 /**
  * Facade providing the unified public API for controlling simulation execution in M3.

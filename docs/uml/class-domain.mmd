@@ -1,0 +1,314 @@
+---
+title: "Class diagram 1/5: domain model (Survivor composition)"
+---
+classDiagram
+    direction TB
+
+    class Scale {
+        +int MIN = 0$
+        +int MAX = 100$
+        +requireInRange(name, value)$ int
+        +clamp(value)$ int
+    }
+
+    class SurvivorId {
+        <<record>>
+        +int value
+        +compareTo(other) int
+    }
+
+    class EventId {
+        <<record>>
+        +long value
+        +compareTo(other) int
+    }
+
+    class RegionId {
+        <<record>>
+        +int value
+        +REGION_1$ RegionId
+        +REGION_2$ RegionId
+        +REGION_3$ RegionId
+        +REGION_4$ RegionId
+        +ALL$ List~RegionId~
+        +compareTo(other) int
+    }
+
+    class PopulationConfig {
+        <<record>>
+        +int size
+        +DEFAULT_POPULATION = 25$
+        +MIN_POPULATION = 20$
+        +MAX_POPULATION = 30$
+        +defaultConfig()$ PopulationConfig
+    }
+
+    class SurvivorStatus {
+        <<enumeration>>
+        ALIVE
+        DEAD
+    }
+
+    class Need {
+        <<enumeration>>
+        FOOD
+        WATER
+        REST
+        SAFETY
+    }
+
+    class Needs {
+        -Map~Need, Integer~ levels
+        +level(need) int
+        +set(need, level) void
+        +adjust(need, delta) int
+        +fullySatisfied()$ Needs
+    }
+
+    class HealthCondition {
+        <<enumeration>>
+        HEALTHY
+        ILL
+        INJURED
+    }
+
+    class Health {
+        -int vitality
+        -HealthCondition condition
+        +vitality() int
+        +condition() HealthCondition
+        +setVitality(vitality) void
+        +adjustVitality(delta) int
+        +setCondition(condition) void
+        +isDepleted() boolean
+        +healthy()$ Health
+    }
+
+    class Trait {
+        <<enumeration>>
+        COMPASSIONATE
+        SELF_INTERESTED
+        FEARFUL
+        AGGRESSIVE
+        COOPERATIVE
+        SUSPICIOUS
+        RESILIENT
+        AUTHORITATIVE
+    }
+
+    class Personality {
+        -Map~Trait, Integer~ values
+        +NEUTRAL = 50$
+        +value(trait) int
+        +with(trait, value) Personality
+        +neutral()$ Personality
+    }
+
+    class ProfessionType {
+        <<enumeration>>
+        FARMER
+        SCAVENGER
+        MEDIC
+        GUARD
+        GENERAL_WORKER
+        +displayName() String
+    }
+
+    class Profession {
+        -ProfessionType type
+        -int skill
+        +type() ProfessionType
+        +skill() int
+        +displayName() String
+        +withSkill(newSkill) Profession
+    }
+
+    class ItemType {
+        <<enumeration>>
+        FOOD
+        WATER
+        MEDICINE
+    }
+
+    class Inventory {
+        -int capacity
+        -Map~ItemType, Integer~ quantities
+        +capacity() int
+        +quantity(type) int
+        +totalQuantity() int
+        +freeSpace() int
+        +has(type, amount) boolean
+        +add(type, amount) void
+        +remove(type, amount) void
+    }
+
+    class RelationshipType {
+        <<enumeration>>
+        STRANGER
+        ACQUAINTANCE
+        FRIEND
+        FAMILY
+        RIVAL
+    }
+
+    class RelationshipEntry {
+        <<record>>
+        +int day
+        +RelationshipType type
+        +int trust
+        +int affection
+        +int hostility
+        +EventId sourceEventId
+    }
+
+    class Relationship {
+        +MAX_HISTORY = 20$
+        -SurvivorId target
+        -RelationshipType type
+        -int trust
+        -int affection
+        -int hostility
+        -List~RelationshipEntry~ history
+        +target() SurvivorId
+        +type() RelationshipType
+        +trust() int
+        +affection() int
+        +hostility() int
+        +adjust(day, trustDelta, affectionDelta, hostilityDelta, source) void
+        +changeType(day, newType, source) void
+        +history() List~RelationshipEntry~
+    }
+
+    class CharacterMemory {
+        +MIN_IMPACT = -100$
+        +MAX_IMPACT = 100$
+        -int day
+        -int emotionalImpact
+        -SurvivorId relatedSurvivor
+        -EventId sourceEventId
+        +day() int
+        +emotionalImpact() int
+        +relatedSurvivor() Optional~SurvivorId~
+        +sourceEventId() EventId
+    }
+
+    class Survivor {
+        -SurvivorId id
+        -String name
+        -Personality personality
+        -Profession profession
+        -Needs needs
+        -Health health
+        -Inventory inventory
+        -RegionId location
+        -SurvivorStatus status
+        -Map~SurvivorId, Relationship~ relationships
+        -List~CharacterMemory~ memories
+        +id() SurvivorId
+        +name() String
+        +personality() Personality
+        +profession() Profession
+        +needs() Needs
+        +health() Health
+        +inventory() Inventory
+        +location() Optional~RegionId~
+        +status() SurvivorStatus
+        +isAlive() boolean
+        +markDead() void
+        +changeProfession(newProfession) void
+        +addRelationship(relationship) void
+        +relationshipWith(other) Optional~Relationship~
+        +relationships() Collection~Relationship~
+        +remember(memory) void
+        +memories() List~CharacterMemory~
+    }
+
+    class Region {
+        -RegionId id
+        -String name
+        -Set~SurvivorId~ survivorIds
+        +id() RegionId
+        +name() String
+        +survivorIds() Set~SurvivorId~
+        +population() int
+        +contains(survivorId) boolean
+    }
+
+    class Settlement {
+        -String name
+        -Map~RegionId, Region~ regions
+        -Map~SurvivorId, Survivor~ survivors
+        -Map~SurvivorId, RegionId~ survivorRegionIndex
+        +name() String
+        +population() int
+        +registerSurvivor(survivor, regionId) void
+        +survivor(id) Optional~Survivor~
+        +contains(id) boolean
+        +survivors() Collection~Survivor~
+        +region(id) Optional~Region~
+        +regions() Collection~Region~
+        +regionOf(survivorId) Optional~RegionId~
+        +survivorsIn(regionId) Set~SurvivorId~
+    }
+
+    class World {
+        -Settlement settlement
+        +settlement() Settlement
+    }
+
+    class InitialPopulation {
+        +createDefaultSettlement(name)$ Settlement
+        +createSettlement(name, config)$ Settlement
+        +createDefaultWorld(name)$ World
+        +createWorld(name, config)$ World
+        +generateSurvivors(count)$ List~Survivor~
+    }
+
+    class SurvivorSnapshot {
+        <<record>>
+        +SurvivorId id
+        +String name
+        +Personality personality
+        +Profession profession
+        +Map~Need, Integer~ needLevels
+        +int vitality
+        +HealthCondition condition
+        +Map~ItemType, Integer~ inventoryQuantities
+        +int inventoryCapacity
+        +Optional~RegionId~ location
+        +SurvivorStatus status
+        +needLevel(need) int
+        +itemQuantity(type) int
+        +hasItem(type, amount) boolean
+        +isAlive() boolean
+        +from(survivor)$ SurvivorSnapshot
+    }
+
+    World *-- "1" Settlement : contains
+    Settlement *-- "4" Region : manages
+    Settlement o-- "20..30" Survivor : registers
+    Region o-- "0..*" SurvivorId : references
+    Survivor *-- "1" SurvivorId : identity
+    Survivor *-- "1" Personality : composition
+    Survivor *-- "1" Profession : role object
+    Survivor *-- "1" Needs : composition
+    Survivor *-- "1" Health : composition
+    Survivor *-- "1" Inventory : composition
+    Survivor o-- "0..1" RegionId : location
+    Survivor *-- "0..*" Relationship : tracks
+    Survivor *-- "0..*" CharacterMemory : remembers
+    Survivor --> SurvivorStatus : state
+    Profession --> ProfessionType
+    Needs --> Need
+    Health --> HealthCondition
+    Relationship --> RelationshipType
+    Relationship *-- "0..20" RelationshipEntry : bounded history
+    RelationshipEntry --> RelationshipType
+    RelationshipEntry --> EventId
+    CharacterMemory --> EventId
+    CharacterMemory --> SurvivorId
+    Inventory --> ItemType
+    InitialPopulation ..> World : creates
+    InitialPopulation ..> Settlement : creates
+    InitialPopulation ..> PopulationConfig : uses
+    SurvivorSnapshot ..> Survivor : snapshots

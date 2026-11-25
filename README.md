@@ -83,7 +83,7 @@ AfterFall follows a strict **Clean / Hexagonal Layered Architecture** with unidi
 |  - 4 RegionWorkers & RegionWorkerPool   |   |  - JpaEventRecorder                 |
 |  - TickCoordinator (Sole Writer Merge)  |   |  - JpaEvidenceDiscoveryRepository   |
 |  - ObserverAI (4 Manipulation Policies) |   |  - In-Memory Fallback Adapters      |
-|  - EventBus & Narrator (46 Templates)   |   |  - PostgreSQL 17 Database           |
+|  - EventBus & Narrator (51 Templates)   |   |  - PostgreSQL 17 Database           |
 |  - ChoiceCoordinator & ChapterManager   |   +-------------------------------------+
 |  - EvidenceService & RecapGenerator     |
 +-----------------------------------------+
@@ -95,7 +95,7 @@ To achieve high throughput without race conditions or nondeterministic outcomes,
 1. **Immutable Snapshot (`WorldView`):**  
    At the start of every tick, the `TickCoordinator` snapshots the mutable settlement into an immutable `WorldView`.
 2. **Parallel Regional Evaluation:**  
-   The settlement is divided into four geographic regions: `NORTH`, `SOUTH`, `EAST`, and `WEST`. Four dedicated worker threads in a `RegionWorkerPool` evaluate survivor behaviors concurrently. Workers evaluate autonomous actions using seeded PRNGs derived from `(runSeed, regionId, tick)` and return immutable `RegionResult` objects containing proposed actions, resource claims, and migration requests.
+   The settlement is divided into four geographic regions: North, South, East and West (`RegionId` 1 to 4). Four dedicated worker threads in a `RegionWorkerPool` evaluate survivor behaviors concurrently. Workers evaluate autonomous actions using seeded PRNGs derived from `(runSeed, regionId, tick)` and return immutable `RegionResult` objects containing proposed actions, resource claims, and migration requests.
 3. **No Direct Mutation:**  
    Region workers never mutate shared settlement state, resource stocks, or relationships directly.
 4. **Deterministic Sole-Writer Merge:**  
@@ -119,7 +119,7 @@ Tick Start
     │
     ├───────────────┬───────────────┬───────────────┐
     ▼               ▼               ▼               ▼
-Region NORTH    Region SOUTH    Region EAST     Region WEST
+Region North    Region South    Region East     Region West
  Worker 1        Worker 2        Worker 3        Worker 4
     │               │               │               │
     └───────────────┴───────┬───────┴───────────────┘
@@ -196,13 +196,15 @@ Every intervention preserves an unalterable audit record containing the `origina
 
 AfterFall was designed to exemplify clean object-oriented architecture and design patterns:
 
+> One-page viva cheat sheet with exact classes and tests: [`docs/architecture/OOP-SOLID-THREADING-MAP.md`](docs/architecture/OOP-SOLID-THREADING-MAP.md).
+
 ### Four Pillars of OOP
 1. **Encapsulation:**
    - Domain invariants are rigorously enforced. For example, `Resource` ensures quantities never fall below zero using private locks and checked boundary methods. `Needs` encapsulates food/water/rest/safety levels and rejects illegal negative adjustments.
 2. **Abstraction:**
    - Persistence operations are abstracted behind domain interfaces (`RunRepository`, `EventRecorder`, `EvidenceDiscoveryRepository`). The simulation engine communicates strictly via these abstractions without knowledge of JPA or SQL.
 3. **Inheritance:**
-   - Used purposefully in the crisis framework: abstract base class `Crisis` defines core duration tracking, active state flags, and the template execution lifecycle inherited by `FamineCrisis` and `DiseaseOutbreakCrisis`.
+   - Used purposefully in the crisis framework: abstract base class `Crisis` defines core duration tracking, active state flags, and the template execution lifecycle inherited by `FamineCrisis` and `DiseaseOutbreak`.
 4. **Polymorphism:**
    - Demonstrated in Observer policies (`InterventionPolicy`), where `InformationDistortionPolicy`, `TrustErosionPolicy`, `ResourcePressurePolicy`, and `SelectiveDisclosurePolicy` are evaluated polymorphically by `ObserverAI`.
 
@@ -270,7 +272,7 @@ All build and run operations use the Maven Wrapper from the `backend/` directory
 # Navigate to backend directory
 cd backend
 
-# 1. Execute complete test suite (306 tests)
+# 1. Execute complete test suite (306 tests; needs PostgreSQL 17 for all to pass)
 .\mvnw.cmd test
 
 # 2. Package into an executable JAR
@@ -306,10 +308,7 @@ Once the terminal displays `Started AfterFallApplication in X.XXX seconds`, open
 AfterFall maintains a comprehensive automated testing suite ensuring deterministic execution, thread safety, and data integrity.
 
 ### Verified Test Suite Baseline
-- **Total Tests Run:** **306**
-- **Failures:** **0**
-- **Errors:** **0**
-- **Skipped:** **0**
+- **Total tests:** **306**. On a machine without PostgreSQL 17, 305 pass; the one that does not is `Postgres17LiveIntegrationTest`, which asserts a live PostgreSQL 17 server. With PostgreSQL 17 running and `AFTERFALL_DB_PASSWORD` set, the suite is expected to pass in full (not yet confirmed on PostgreSQL 17).
 
 ### Key Test Categories
 1. **Architecture & Boundaries:**
@@ -337,15 +336,17 @@ cd backend
 
 ## 8. UML & Architectural Diagrams
 
-All architectural diagrams are maintained as Mermaid source files in [`docs/uml/`](docs/uml):
+Diagrams are Mermaid sources in [`docs/uml/`](docs/uml) with pre-rendered PNGs in [`docs/uml/rendered/`](docs/uml/rendered). See [`docs/uml/README.md`](docs/uml/README.md) for the index and how to render them.
 
-- **Component Diagram:** [`docs/uml/component-diagram.mmd`](docs/uml/component-diagram.mmd) — Five-tier component diagram documenting the browser, REST controllers, STOMP broadcaster, `SimulationService`, core simulation engine, dual persistence adapters, and PostgreSQL.
-- **Tick Sequence Diagram:** [`docs/uml/tick-sequence.mmd`](docs/uml/tick-sequence.mmd) — Step-by-step sequence of `TickCoordinator.doExecute()`, from snapshot creation through parallel evaluation, migration handoff, sole-writer merge, and event fan-out.
-- **Decision Sequence Diagram:** [`docs/uml/decision-sequence.mmd`](docs/uml/decision-sequence.mmd) — Complete sequence of choice moment triggers, tick-boundary pausing, REST decision submissions, default fallbacks, and next-tick consequence application.
-- **Cross-Region Handoff Diagram:** [`docs/uml/cross-region-handoff.mmd`](docs/uml/cross-region-handoff.mmd) — Relocation validation, roster mutation, location index updates, and atomic rollback mechanics.
-- **Class Diagram:** [`docs/uml/class-diagram.mmd`](docs/uml/class-diagram.mmd) — Comprehensive structural class diagram of domain entities, value objects, and behavior interfaces.
-- **Concurrency Architecture:** [`docs/uml/concurrency-architecture.mmd`](docs/uml/concurrency-architecture.mmd) — Thread boundaries, snapshot isolation, and sole-writer merge architecture.
-- **Lifecycle State Machine:** [`docs/uml/lifecycle-state.mmd`](docs/uml/lifecycle-state.mmd) — Simulation engine lifecycle states and valid transitions.
+| Required diagram | File |
+|---|---|
+| Class (five focused views) | `class-domain`, `class-actions-crises`, `class-simulation`, `class-observer-story`, `class-persistence-recap`; `class-diagram.mmd` is the full 128-class reference |
+| Sequence: tick and ordered merge | `tick-sequence.mmd` |
+| Sequence: decision and safe pause | `decision-sequence.mmd` |
+| Sequence: cross-region handoff | `cross-region-handoff.mmd` |
+| State machine | `lifecycle-state.mmd` |
+| Component | `component-diagram.mmd` |
+| Extra: thread and snapshot view | `concurrency-architecture.mmd` |
 
 ---
 
@@ -379,14 +380,16 @@ All architectural diagrams are maintained as Mermaid source files in [`docs/uml/
 AfterFall/
 ├── backend/
 │   ├── src/main/java/com/afterfall/
+│   │   ├── action/            # Command pattern: Action, ActionResult, Eat/Work/Rest/Heal/Move
 │   │   ├── application/       # Orchestrator (SimulationService) & persistence ports
+│   │   ├── behavior/          # Strategy pattern: Behavior implementations & BehaviorSelector
 │   │   ├── chapter/           # ChapterManager & transition rules
 │   │   ├── choice/            # ChoiceCoordinator, ChoiceMoment & consequences
 │   │   ├── config/            # Spring configuration & WebSocket/STOMP setup
 │   │   ├── domain/            # Plain Java domain model (World, Survivor, Resources, Crises)
 │   │   ├── events/            # Canonical SimEvent, EventBus & EventSubscriber
 │   │   ├── infrastructure/    # JPA & In-memory adapters, AsyncEventRecorder
-│   │   ├── narrator/          # Narrator, StoryCaption & 46 authored templates
+│   │   ├── narrator/          # Narrator, StoryCaption & 51 authored templates
 │   │   ├── observer/          # ObserverAI & 4 manipulation policies
 │   │   ├── recap/             # EvidenceService, FinalRecording & RecapGenerator
 │   │   ├── simulation/        # SimulationEngine, TickCoordinator & 4 RegionWorkers
@@ -397,7 +400,8 @@ AfterFall/
 │   └── src/test/java/com/afterfall/  # 306 automated unit, integration, and concurrency tests
 ├── docs/
 │   ├── blueprint/             # Canonical solo blueprint specification
-│   ├── architecture/          # Approved technical clarifications
+│   ├── architecture/          # Technical clarifications & OOP/SOLID/threading map
+│   ├── demo/ release/         # Demo script, rehearsal pack, release checklist
 │   ├── desgin/                # Visual direction and UI design tokens
 │   └── uml/                   # Mermaid architecture, sequence, and class diagrams
 ├── CLAUDE.md                  # Development instructions & architecture rules

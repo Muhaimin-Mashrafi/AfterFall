@@ -8,7 +8,6 @@ import com.afterfall.domain.Survivor;
 import com.afterfall.simulation.SurvivorView;
 import com.afterfall.simulation.WorldView;
 
-import java.util.Collection;
 import java.util.Objects;
 
 /**

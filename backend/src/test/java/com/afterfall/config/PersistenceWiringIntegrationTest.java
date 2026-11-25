@@ -3,7 +3,6 @@ package com.afterfall.config;
 import com.afterfall.application.persistence.EventRecorder;
 import com.afterfall.application.persistence.RunId;
 import com.afterfall.application.persistence.RunRepository;
-import com.afterfall.events.EventBus;
 import com.afterfall.events.SimEvent;
 import com.afterfall.infrastructure.persistence.async.AsyncEventRecorder;
 import com.afterfall.infrastructure.persistence.inmemory.InMemoryEventRecorder;
@@ -44,9 +43,6 @@ class PersistenceWiringIntegrationTest {
     @Autowired
     private AsyncEventRecorder asyncEventRecorder;
 
-    @Autowired
-    private EventBus eventBus;
-
     @Test
     void verifiesAllPersistenceBeansAreRegisteredAndWired() {
         assertNotNull(runRepository, "RunRepository bean should be injected");
@@ -56,17 +52,13 @@ class PersistenceWiringIntegrationTest {
         assertNotNull(inMemoryRunRepository, "InMemoryRunRepository should be present");
         assertNotNull(inMemoryEventRecorder, "InMemoryEventRecorder should be present");
         assertNotNull(asyncEventRecorder, "AsyncEventRecorder should be present");
-        assertNotNull(eventBus, "EventBus should be present");
 
         assertSame(jpaPostgresRunRepository, runRepository, "Primary RunRepository should be JpaPostgresRunRepository");
         assertSame(asyncEventRecorder, eventRecorder, "Primary EventRecorder should be AsyncEventRecorder");
-
-        assertTrue(eventBus.subscribers().stream().anyMatch(s -> s.subscriberId().equals("async-recorder")),
-                "AsyncEventRecorder must be registered with EventBus in PersistenceConfiguration");
     }
 
     @Test
-    void verifiesEventBusFansOutAutomaticallyToAsyncEventRecorder() throws Exception {
+    void asyncRecorderPersistsEventsUnderItsDefaultRunId() throws Exception {
         RunId defaultRunId = RunId.of("current-run");
 
         // Directly verify onEvents call

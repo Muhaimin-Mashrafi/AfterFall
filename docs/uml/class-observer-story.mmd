@@ -1,0 +1,379 @@
+---
+title: "Class diagram 4/5: Observer, EventBus, Narrator, choices and chapters"
+---
+classDiagram
+    direction TB
+
+    class InterventionType {
+        <<enumeration>>
+        INFORMATION_DISTORTION
+        TRUST_EROSION
+        RESOURCE_PRESSURE
+        SELECTIVE_DISCLOSURE
+    }
+
+    class InterventionStatus {
+        <<enumeration>>
+        PROPOSED
+        APPLIED
+        REJECTED
+    }
+
+    class Intervention {
+        -long id
+        -long tick
+        -InterventionType type
+        -Optional~SurvivorId~ targetSurvivor
+        -Optional~RegionId~ targetRegion
+        -String reason
+        -String intendedEffect
+        -String originalReport
+        -String alteredReport
+        -Map~Need, Integer~ needDeltas
+        -int trustDelta
+        -Optional~SurvivorId~ relatedSurvivor
+        +id() long
+        +tick() long
+        +type() InterventionType
+        +needDeltas() Map
+        +trustDelta() int
+        +builder(id, tick, type) Builder$
+    }
+
+    class InterventionRecord {
+        -long interventionId
+        -long tick
+        -InterventionType type
+        -String targetDescription
+        -String reason
+        -String intendedEffect
+        -String actualResult
+        -InterventionStatus status
+        -String originalReport
+        -String alteredReport
+    }
+
+    class ObservationReport {
+        -long tick
+        -int activeSurvivors
+        -int illSurvivors
+        -int foodStock
+        -double averageTrust
+        -double averageMorale
+        -double relationshipTension
+        +from(worldView, settlement) ObservationReport$
+    }
+
+    class InterventionPolicy {
+        <<interface>>
+        +type() InterventionType*
+        +shouldTrigger(report) boolean*
+        +evaluate(report, worldView, settlement, id, randomFactory) Optional~Intervention~*
+    }
+
+    class InformationDistortionPolicy {
+        -double trustThreshold
+        -int foodThreshold
+        -double tensionThreshold
+    }
+
+    class TrustErosionPolicy {
+        -double tensionThreshold
+        -int trustDrop
+    }
+
+    class ResourcePressurePolicy {
+        -int foodAlertThreshold
+        -int medicineAlertThreshold
+    }
+
+    class SelectiveDisclosurePolicy {
+        -int illTriggerThreshold
+        -double lowMoraleThreshold
+    }
+
+    class ObserverAI {
+        -List~InterventionPolicy~ policies
+        -List~InterventionRecord~ records
+        +analyzeAndPropose(worldView, settlement, randomFactory) Optional~Intervention~
+        +record(intervention, status, result) void
+        +records() List~InterventionRecord~
+    }
+
+    class EventSeverity {
+        <<enumeration>>
+        MINOR
+        SIGNIFICANT
+        CRITICAL
+    }
+
+    class SimEvent {
+        -EventId id
+        -long tick
+        -String eventType
+        -List~SurvivorId~ targetSurvivors
+        -Optional~RegionId~ location
+        -EventSeverity severity
+        -String summary
+        -Map~String, String~ data
+        -List~EventId~ sourceReferences
+        +id() EventId
+        +tick() long
+        +eventType() String
+        +targetSurvivors() List
+        +location() Optional
+        +severity() EventSeverity
+        +summary() String
+        +data() Map
+        +sourceReferences() List
+    }
+
+    class EventSubscriber {
+        <<interface>>
+        +subscriberId() String*
+        +onEvents(events) void*
+    }
+
+    class EventBus {
+        -List~EventSubscriber~ subscribers
+        -ConcurrentHashMap~String, Queue~ subscriberQueues
+        +register(subscriber) void
+        +unregister(subscriber) void
+        +publish(events) void
+        +queuedEventsFor(subscriberId) List~SimEvent~
+    }
+
+    class StoryCaption {
+        -long captionId
+        -long tick
+        -String text
+        -EventSeverity severity
+        -List~EventId~ sourceEventIds
+        -List~SurvivorId~ referencedSurvivorIds
+        +captionId() long
+        +tick() long
+        +text() String
+        +severity() EventSeverity
+        +sourceEventIds() List
+        +referencedSurvivorIds() List
+    }
+
+    class NarrativeTemplate {
+        -String id
+        -String eventType
+        -String pattern
+        +render(survivor, target, region, day, extra) String
+    }
+
+    class NarrativeTemplateRepository {
+        -List~NarrativeTemplate~ TEMPLATES$
+        +BANNED_TERMS Set~String~$
+        +allTemplates() List~NarrativeTemplate~$
+        +templatesFor(eventType) List~NarrativeTemplate~$
+    }
+
+    class Narrator {
+        -Settlement settlement
+        -SeededRandomFactory randomFactory
+        -List~StoryCaption~ generatedCaptions
+        -Deque~String~ recentTemplateIds
+        +subscriberId() String
+        +onEvents(events) void
+        +captions() List~StoryCaption~
+    }
+
+    class ChoiceOption {
+        <<record>>
+        +String optionId
+        +String label
+        +String description
+        +ChoiceConsequence consequence
+        +boolean isDefault
+    }
+
+    class ChoiceConsequence {
+        <<record>>
+        +Map~ResourceType, Integer~ resourceDeltas
+        +Map~Need, Integer~ generalNeedDeltas
+        +int trustDelta
+        +List~SurvivorId~ targetSurvivors
+        +String summary
+        +int severity
+        +builder(summary)$ Builder
+    }
+
+    class ChoiceMoment {
+        -String id
+        -long tick
+        -String chapterId
+        -String title
+        -String prompt
+        -List~ChoiceOption~ options
+        -String defaultOptionId
+        -Optional~String~ selectedOptionId
+        +resolve(optionId) ChoiceRecord
+        +resolveDefault() ChoiceRecord
+        +isResolved() boolean
+    }
+
+    class ChoiceRecord {
+        <<record>>
+        +String choiceId
+        +long tick
+        +String chapterId
+        +String selectedOptionId
+        +String optionLabel
+        +String consequenceSummary
+        +boolean usedDefault
+    }
+
+    class ChoiceCoordinator {
+        -Map~String, ChoiceMoment~ activeMoments
+        -Queue~ChoiceConsequence~ pendingConsequences
+        -List~ChoiceRecord~ decisionLog
+        -ChoiceMoment pendingPauseMoment
+        +triggerChoice(moment)
+        +hasPendingPause() boolean
+        +pendingChoice() Optional~ChoiceMoment~
+        +submitDecision(choiceId, optionId) ChoiceRecord
+        +drainPendingConsequences() List~ChoiceConsequence~
+    }
+
+    class ChapterType {
+        <<enumeration>>
+        CHAPTER_1_A_NEW_BEGINNING
+        CHAPTER_2_THE_FRACTURE
+        CHAPTER_3_THE_REVELATION
+        CHAPTER_4_THE_LAST_RECORDING
+        +next() ChapterType
+        +isTerminal() boolean
+    }
+
+    class ChapterConfig {
+        <<record>>
+        +int minDwellTicks
+        +int softPressureTicks
+        +int hardBackstopTicks
+        +int trustT1
+        +int shortageN1
+        +int evidenceCountE
+        +int exposureLevelX
+        +int moraleM1
+        +int trustT2
+        +int populationP
+        +int moraleM2
+        +int trustT3
+        +int criticalTicksN2
+        +defaultConfig()$ ChapterConfig
+    }
+
+    class StoryState {
+        <<record>>
+        +long currentTick
+        +ChapterType currentChapter
+        +long chapterStartTick
+        +int activePopulation
+        +int averageTrust
+        +int averageMorale
+        +int consecutiveShortageTicks
+        +int discoveredEvidenceCount
+        +int observerExposureLevel
+        +int visibleInterventionsCount
+        +int consecutiveCriticalTicks
+        +chapterDwell() long
+        +snapshot(settlement, ...)$ StoryState
+    }
+
+    class ChapterPolicy {
+        <<interface>>
+        +sourceChapter()* ChapterType
+        +evaluateTransition(state, config)* Optional~String~
+    }
+
+    class NewBeginningPolicy {
+        +sourceChapter() ChapterType
+        +evaluateTransition(state, config) Optional~String~
+    }
+
+    class TheFracturePolicy {
+        +sourceChapter() ChapterType
+        +evaluateTransition(state, config) Optional~String~
+    }
+
+    class TheRevelationPolicy {
+        +sourceChapter() ChapterType
+        +evaluateTransition(state, config) Optional~String~
+    }
+
+    class TheLastRecordingPolicy {
+        +sourceChapter() ChapterType
+        +evaluateTransition(state, config) Optional~String~
+    }
+
+    class ChapterTransition {
+        <<record>>
+        +long tick
+        +ChapterType fromChapter
+        +ChapterType toChapter
+        +String triggerReason
+        +boolean isForced
+    }
+
+    class ChapterManager {
+        -ChapterConfig config
+        -Map~ChapterType, ChapterPolicy~ policies
+        -List~ChapterTransition~ transitionHistory
+        -ChapterType currentChapter
+        -long chapterStartTick
+        +evaluateTick(settlement, currentTick, shortage) Optional~ChapterTransition~
+        +isPressureEscalationActive(currentTick) boolean
+        +recordEvidenceDiscovered()
+        +recordVisibleIntervention()
+    }
+
+    class TickCoordinator {
+    }
+
+    class EventId {
+        <<record>>
+    }
+
+    TickCoordinator *-- "1" ObserverAI : coordinates
+    TickCoordinator *-- "1" EventBus : publishes to
+    EventBus *-- "0..*" EventSubscriber : observer fan-out
+    EventSubscriber <|.. Narrator : implements
+    EventBus ..> SimEvent : fans out
+    SimEvent --> EventSeverity
+    SimEvent --> EventId
+    Narrator *-- "0..*" StoryCaption : generates
+    Narrator ..> NarrativeTemplateRepository : uses
+    NarrativeTemplateRepository *-- "40..*" NarrativeTemplate : authored templates
+    StoryCaption --> EventSeverity
+    StoryCaption ..> EventId : cites source
+    ObserverAI *-- "4" InterventionPolicy : strategy
+    InterventionPolicy <|.. InformationDistortionPolicy : implements
+    InterventionPolicy <|.. TrustErosionPolicy : implements
+    InterventionPolicy <|.. ResourcePressurePolicy : implements
+    InterventionPolicy <|.. SelectiveDisclosurePolicy : implements
+    ObserverAI ..> Intervention : proposes (Command)
+    ObserverAI *-- "0..*" InterventionRecord : archives (Evidence)
+    Intervention --> InterventionType
+    InterventionRecord --> InterventionType
+    InterventionRecord --> InterventionStatus
+    TickCoordinator ..> Intervention : validates & applies
+    ChoiceMoment *-- "1..*" ChoiceOption : contains
+    ChoiceOption *-- "1" ChoiceConsequence : defines
+    ChoiceCoordinator *-- "0..*" ChoiceMoment : manages
+    ChoiceCoordinator *-- "0..*" ChoiceRecord : logs
+    ChoiceCoordinator *-- "0..*" ChoiceConsequence : queues
+    TickCoordinator *-- "1" ChoiceCoordinator : coordinates
+    TickCoordinator *-- "1" ChapterManager : coordinates
+    ChapterManager *-- "1" ChapterConfig : configures
+    ChapterManager *-- "4" ChapterPolicy : strategy
+    ChapterPolicy <|.. NewBeginningPolicy : implements
+    ChapterPolicy <|.. TheFracturePolicy : implements
+    ChapterPolicy <|.. TheRevelationPolicy : implements
+    ChapterPolicy <|.. TheLastRecordingPolicy : implements
+    ChapterPolicy ..> StoryState : evaluates
+    ChapterManager *-- "0..*" ChapterTransition : records
+    ChapterManager --> ChapterType : state

@@ -3,8 +3,6 @@ package com.afterfall.demo;
 import com.afterfall.domain.Resource;
 import com.afterfall.domain.ResourceType;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;

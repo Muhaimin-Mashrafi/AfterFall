@@ -3,13 +3,11 @@ package com.afterfall.observer;
 import com.afterfall.domain.Need;
 import com.afterfall.domain.RegionId;
 import com.afterfall.domain.Settlement;
-import com.afterfall.domain.Survivor;
 import com.afterfall.simulation.SeededRandomFactory;
 import com.afterfall.simulation.SurvivorView;
 import com.afterfall.simulation.WorldView;
 
 import java.util.Comparator;
-import java.util.List;
 import java.util.Optional;
 
 /**

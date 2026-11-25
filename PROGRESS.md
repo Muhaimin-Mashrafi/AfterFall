@@ -5,7 +5,7 @@ This file is the handoff point between Claude Code sessions. Update it after eve
 ## Current status
 - Project: AfterFall - The Last Days of Humanity
 - Canonical specification: `docs/blueprint/AfterFall-Blueprint-Revised-Solo.md`
-- Current milestone: M11 complete and verified (Hidden Records, Evidence Discovery and Final Recap: EvidenceItem with DiscrepancyType classification, pure Java EvidenceService, EvidenceDiscoveryRepository with in-memory and PostgreSQL/JPA persistence, duplicate discovery prevention, SimulationService Chapter III integration, FinalRecording with mandatory closing line, pure RecapGenerator consuming immutable snapshots, REST endpoints /api/records/evidence and /api/recap, enhanced records.html and records.js with dual report comparison, cryptographic decryption investigation, and cinematic Final Recording modal, 294 passing tests). Ready for M12.
+- Current milestone: M12 completed and verified (Full Integration, Quality Assurance, UML, Documentation and Checkpoint Demonstration; all 300 tests passing, 0 failures, 0 errors, 0 skipped; clean shutdown, determinism with 0-50ms jitter, restart recovery, UML diagrams, comprehensive README, and 7-minute demo showcase verified).
 - Application code: Spring Boot skeleton, domain models, autonomous behaviors, action commands, 4-worker multithreaded simulation engine, deterministic merge, batch rollback, lifecycle state management, resource pools, crises, ObserverAI, EventBus fan-out, template-driven Narrator, Choice moments & consequence application, threshold-driven Chapter policies, dual-adapter persistence with asynchronous recording, Story-First HTML/CSS/JS web frontend, and Hidden Records & Final Documentary Recap.
 - Last updated: 2026-11-25
 
@@ -47,7 +47,7 @@ This file is the handoff point between Claude Code sessions. Update it after eve
 | M9 | Spring Boot, PostgreSQL, persistence interfaces and async recorder | Complete (2026-11-24) |
 | M10 | Story-first frontend: four core pages plus operator controls | Complete (2026-11-24) |
 | M11 | Recovered records and final recap | Complete (2026-11-25) |
-| M12 | Integration, tests, UML, docs and checkpoint demo | Not started |
+| M12 | Integration, tests, UML, docs and checkpoint demo | Complete (2026-11-25) |
 | M13 | Feature freeze, bug bash, three rehearsals and fallback recording | Not started |
 | M14 (SHOULD) | Audience voting | Not started |
 | M15 (SHOULD) | Scale to about 100 survivors | Not started |
@@ -83,7 +83,83 @@ This file is the handoff point between Claude Code sessions. Update it after eve
 - None. M0 through M7 completed and verified (222 passing tests).
 - Awaiting user approval on M7 completion to proceed to M8 (Choices, consequences and four threshold-driven chapters).
 
-## Latest completed task: M10 - Story-First Frontend (Four Screens + Operator Controls) (2026-11-24)
+## Latest completed task: M12 - Full Integration, Quality Assurance, UML, Documentation and Checkpoint Demonstration (2026-11-25)
+Successfully completed and verified all six steps of Milestone M12:
+
+1. **Concurrency & Determinism Verification Suite (Step 1):**
+   - Implemented `WorkerJitterDeterminismTest` (0–50 ms synthetic delay verification; identical event logs, survivor states, and state hash across repeated seeded runs).
+   - Implemented `CleanShutdownTest` (verified pool, channel, and writer thread termination without leaks).
+   - Implemented `UnsafeRaceDemo` (standalone demonstration contrasting naive concurrent mutation with AfterFall's lock-protected `Resource` and sole-writer merge).
+2. **Full End-to-End Integration Test Suite (Step 2):**
+   - Implemented `FullRunLifecycleEndToEndTest` verifying initialisation, 4-worker ticks, canonical events, narrative captions, Observer interventions, safe choice pausing, chapter progression, evidence discovery, final recording, and PostgreSQL persistence recovery across simulated restart.
+3. **Mandatory UML Deliverables (Step 3):**
+   - Updated `component-diagram.mmd` and `tick-sequence.mmd`.
+   - Authored new `decision-sequence.mmd` and `cross-region-handoff.mmd`.
+   - Verified 100% syntax and parsing validity with headless browser rendering.
+4. **Comprehensive Technical Documentation (Step 4):**
+   - Completely rewrote `README.md` to university-grade standards with 3 verified factual corrections (exact PostgreSQL env vars, 51 authored templates, threshold-driven chapter mechanics).
+5. **Seven-Minute Project Showcase Demonstration (Step 5):**
+   - Authored `docs/demo/DEMO_SCRIPT.md` with pre-flight checklist, timed 7-minute narration, exact button triggers, fault tolerance matrix, and evaluator Q&A guide.
+6. **Final Quality Audit & Regression Verification (Step 6):**
+   - Full Maven test suite executed with configured environment: **300 tests run, 0 failures, 0 errors, 0 skipped**.
+   - Verified `UnsafeRaceDemo` runs independently outside surefire test lifecycle.
+   - Zero framework imports in domain or simulation core confirmed by `CoreBoundaryTest`.
+
+Total project tests passing: **300** (0 failures, 0 errors, 0 skipped).
+
+## Previous completed task: M10 - Story-First Frontend (Four Screens + Operator Controls) (2026-11-24)
+Completely rewrote `README.md` to provide exhaustive, university-grade architectural and technical documentation suitable for evaluation, verified with three factual corrections:
+1. Exact PostgreSQL environment variables verified against `application.yml`: `AFTERFALL_DB_URL`, `AFTERFALL_DB_USER`, `AFTERFALL_DB_PASSWORD`.
+2. Exact authored narrative template count verified against `NarrativeTemplateRepository.java`: **51 authored templates** across routines, crises, Observer manipulations, death, choices, and chapter transitions.
+3. Chapter transitions accurately detailed as state-threshold-driven (trust, shortage, evidence, exposure, morale, population) with minimum dwell ($D_{\min}$), soft pressure ($D_{\text{soft}}$), and hard backstop ($D_{\text{hard}}$) guardrails, distinguishing normal gameplay thresholds from compressed demonstration profiles.
+
+**Documentation Scope Covered (`README.md`)**
+1. **Project Overview:** Lore, moral statement, 4-chapter narrative arc, and V1 single-player scope.
+2. **Technology Stack:** Java 21, Spring Boot 4.1.2, PostgreSQL 17, Maven Wrapper, vanilla HTML5/CSS3/JavaScript, and Java concurrency utilities.
+3. **Architecture:** Detailed layered architecture and diagrams covering presentation, web, application, plain Java core, infrastructure, and PostgreSQL. Included deep dive into the 4-worker concurrency model, immutable `WorldView` snapshots, and sole-writer deterministic merge.
+4. **Major Systems:** Complete breakdown of survivor biometrics and actions, resource stocks and famine/disease crises, ObserverAI manipulation policies and audit records, EventBus and template-driven Narrator with 51 authored templates and banned-term safeguards, choice pausing and consequence resolution, forensic evidence discovery, Final Recording and `RunRecap`, and asynchronous persistence.
+5. **OOP & Design Patterns:** Concrete class mappings to the 4 OOP pillars, all 5 SOLID principles, and 7 GoF/concurrency patterns (Strategy, Observer, Command, Template Method, Builder, Producer-Consumer, State Machine).
+6. **Installation & Local Execution:** Detailed Windows PowerShell instructions covering JDK 21 verification, PostgreSQL 17 setup and database creation, exact environment variable configuration (`AFTERFALL_DB_USER`, `AFTERFALL_DB_URL`, `AFTERFALL_DB_PASSWORD`), offline execution, and browser URLs (`localhost:8080`).
+7. **Testing & QA Overview:** Documentation of all 300 tests (architecture boundaries, jitter determinism, clean shutdown, race conditions, E2E lifecycle, restart recovery, narrative compliance, and REST/WebSocket integration).
+8. **UML Links:** Direct links to all 7 Mermaid diagrams in `docs/uml/`.
+9. **Scope Boundaries:** Strict distinction between implemented V1 scope and future/optional features.
+
+## Previous completed task: M12 Step 3 - Update and Complete Mandatory UML Deliverables (2026-11-25)
+Updated existing and authored new Mermaid UML diagrams under `docs/uml/` reflecting the actual implemented M0–M11 architecture, threading models, deterministic merge order, safe choice pauses, and cross-region migration handoffs.
+
+**Diagrams Updated & Created (`docs/uml/`)**
+1. `component-diagram.mmd`:
+   - Updated from M0 draft to actual production architecture.
+   - Accurately details Browser (4 HTML screens + JS clients), Spring Web Layer (`SimulationApiController`, `StoryApiController`, `ObserverApiController`, `MetricsApiController`, `WebSocketConfig`, `WebSocketBroadcaster`), Application Layer (`SimulationService`, `RunRepository`, `EventRecorder`, `EvidenceDiscoveryRepository`), Core Layer (`SimulationEngine`, `TickCoordinator`, `RegionWorkerPool`, 4 `RegionWorker`s, `World`, `Settlement`, `ResourceStock`, `CrisisManager`, `MigrationCoordinator`, `ObserverAI`, `EventBus`, `Narrator`, `ChoiceCoordinator`, `ChapterManager`, `RecapGenerator`, `EvidenceService`), Infrastructure Adapters (Dual JPA and In-Memory implementations, `AsyncEventRecorder`), and PostgreSQL 17 database.
+   - Enforces strict architectural layering and dependency inversion (simulation core has zero Spring/JPA imports).
+2. `tick-sequence.mmd`:
+   - Updated sequence from client invocation to snapshot publication.
+   - Represents the exact implementation sequence of `TickCoordinator.doExecute()`: Phase 1 overlap guard, Phase 2 `WorldView.snapshot`, Phase 3 parallel regional evaluation across 4 workers (5s timeout), Phase 4 future collection and validation, Phase 5 deterministic sole-writer merge (5a region/survivor sort, 5b migration handoff, 5c atomic batch mutation via `StateChangeApplier`, 5d resource claim resolution, 5e crisis advancement, 5f observer intervention execution, 5g choice consequence application, 5h chapter transition evaluation), canonical `SimEvent` fan-out to `EventBus` (`Narrator` caption generation + `AsyncEventRecorder` persistence queues), Phase 6 clock advance, and engine tick-boundary pause checks.
+3. `decision-sequence.mmd` (New):
+   - Sequences choice moment trigger, safe tick-boundary pause, HTTP REST query (`/api/story`), modal presentation, valid player choice submission (`/api/choices/{id}`), invalid option default fallback handling, consequence queueing, simulation resumption, and next-tick consequence application by `TickCoordinator`.
+4. `cross-region-handoff.mmd` (New):
+   - Sequences worker migration proposals from immutable snapshots, deterministic merge collection, `MigrationCoordinator` duplicate checking and invariant validation, domain-boundary `MigrationHandoff.executeMigration` (source removal, destination addition, survivor location update, inverted index synchronization), and atomic rollback handling on subsequent batch failure.
+
+**Validation Results**
+- All diagrams verified using headless browser rendering (`@mermaid-js/mermaid-cli` via Microsoft Edge).
+- 100% parse and render success across all 4 diagrams.
+
+## Previous completed task: M12 Step 2 - Full End-to-End Integration Test Suite (2026-11-25)
+Implemented `FullRunLifecycleEndToEndTest` verifying the complete AfterFall V1 gameplay lifecycle, deterministic tick progression, safe tick-boundary choice pausing, chapter progression, evidence discovery, final recording synthesis, and complete JPA persistence recovery across a simulated application restart.
+
+**Tests & Test Scope Added**
+- `backend/src/test/java/com/afterfall/simulation/FullRunLifecycleEndToEndTest.java`:
+  - **Phase 1: Simulation Run Initialisation & Autonomous Ticks:** Initializes a run with seed 4242, advances multiple ticks under 4 region workers, verifies autonomous survivor action generation, resource consumption, canonical `SimEvent` emission, and template-driven `StoryCaption` generation.
+  - **Phase 2: Observer Intervention & Audit Trail:** Dequeues and applies an Observer intervention at the tick boundary as sole writer; verifies state changes and audit record logging.
+  - **Phase 3: ChoiceMoment & Safe Tick-Boundary Pause:** Triggers a choice moment, asserts engine pause state, submits an operator decision, and validates consequence application and resumption.
+  - **Phase 4: Chapter Progression:** Asserts threshold evaluation and logs `ChapterTransition` (Chapter I -> Chapter II).
+  - **Phase 5: Evidence Discovery:** Extracts available `EvidenceItem`s from applied Observer interventions, simulates player discovery via `EvidenceService`, and validates duplicate discovery protection.
+  - **Phase 6: Final Recording & RunRecap Synthesis:** Generates final state summary, final survivor snapshots, and verifies mandatory closing line `"The settlement fell silent. The Observer remains active."`.
+  - **Phase 7: Application Restart & Recovery:** Simulates fresh application restart, re-instantiates persistence repositories with PostgreSQL JPA entities, loads all run records, and proves regenerated `RunRecap` exactly matches the pre-restart recap.
+
+Total project tests passing: **300** (0 failures, 0 errors, 0 skipped).
+
+## Previous completed task: M10 - Story-First Frontend (Four Screens + Operator Controls) (2026-11-24)
 Implemented REST API, WebSocket/STOMP bridge, and vanilla HTML/CSS/JavaScript interface following `docs/desgin/VISUAL_DIRECTION.md` and `docs/blueprint/AfterFall-Blueprint-Revised-Solo.md`.
 
 **Backend Components Created & Enhanced**

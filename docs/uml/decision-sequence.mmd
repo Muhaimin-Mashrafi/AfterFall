@@ -1,0 +1,96 @@
+sequenceDiagram
+    autonumber
+    actor Player as Player / Web Client
+    participant Rest as StoryApiController
+    participant Service as SimulationService
+    participant Engine as SimulationEngine
+    participant Coordinator as TickCoordinator
+    participant Choice as ChoiceCoordinator
+    participant Moment as ChoiceMoment
+    participant Bus as EventBus
+    participant Narrator as Narrator
+    participant AsyncRec as AsyncEventRecorder
+
+    Note over Coordinator,Choice: Choice Moment Trigger Condition Met
+    Coordinator->>Choice: registerChoiceMoment(choiceMoment)
+    Choice->>Choice: activeMoments.put(choiceId, moment)
+    Choice->>Choice: pendingPauseMoment = moment
+    
+    Note over Coordinator: Complete Current Tick Merge (Phases 5a-5h)
+    Coordinator->>Engine: TickResult (success)
+
+    Note over Engine: Safe Tick-Boundary Pause Check
+    Engine->>Choice: hasPendingPause()
+    Choice-->>Engine: true (pendingPauseMoment != null)
+    Engine->>Engine: transitionTo(PAUSED)
+    
+    Note over Player: Browser polls /api/story or receives STOMP event
+    Player->>Rest: GET /api/story
+    Rest->>Service: pendingChoice()
+    Service->>Choice: activeMoments (unresolved)
+    Service-->>Rest: PendingChoiceDto (choiceId, prompt, options, deadlineTick)
+    Rest-->>Player: 200 OK (Displays Choice Modal on story.html)
+
+    alt Valid Decision Submitted by Player
+        Player->>Rest: POST /api/choices/{choiceId} {"optionId": "OPT-1"}
+        Rest->>Service: submitChoice(choiceId, "OPT-1")
+        Service->>Choice: resolveChoice(choiceId, "OPT-1")
+        Choice->>Moment: findOption("OPT-1")
+        Moment-->>Choice: Optional<ChoiceOption>
+        Choice->>Moment: resolve("OPT-1")
+        Moment-->>Choice: ChoiceOption (consequence, label)
+        Choice->>Choice: pendingConsequences.offer(option.consequence())
+        Choice->>Choice: decisionLog.add(ChoiceRecord[usedDefault=false])
+        Choice->>Choice: pendingPauseMoment = null
+        Choice-->>Service: ChoiceRecord
+        Service->>Engine: resume()
+        Engine->>Engine: transitionTo(RUNNING)
+        Service-->>Rest: ChoiceSelectionResponse (success)
+        Rest-->>Player: 200 OK (Modal closes, UI resumes)
+
+    else Invalid / Unknown Option Submitted
+        Player->>Rest: POST /api/choices/{choiceId} {"optionId": "UNKNOWN"}
+        Rest->>Service: submitChoice(choiceId, "UNKNOWN")
+        Service->>Choice: resolveChoice(choiceId, "UNKNOWN")
+        Choice->>Moment: findOption("UNKNOWN")
+        Moment-->>Choice: Optional.empty()
+        Note over Choice: Fallback to authored default option
+        Choice->>Moment: resolveDefault()
+        Moment-->>Choice: default ChoiceOption
+        Choice->>Choice: pendingConsequences.offer(defaultOption.consequence())
+        Choice->>Choice: decisionLog.add(ChoiceRecord[usedDefault=true])
+        Choice->>Choice: pendingPauseMoment = null
+        Choice-->>Service: ChoiceRecord
+        Service->>Engine: resume()
+        Engine->>Engine: transitionTo(RUNNING)
+        Service-->>Rest: ChoiceSelectionResponse (success with default fallback)
+        Rest-->>Player: 200 OK
+
+    else Nonexistent / Already Resolved Choice
+        Player->>Rest: POST /api/choices/{invalidChoiceId} {"optionId": "OPT-1"}
+        Rest->>Service: submitChoice(...)
+        Service->>Choice: resolveChoice(...)
+        Choice-->>Service: throw IllegalArgumentException / IllegalStateException
+        Service-->>Rest: Error propagated
+        Rest-->>Player: 400 Bad Request / 409 Conflict
+    end
+
+    Note over Engine,Coordinator: Next Simulation Tick Execution (tick + 1)
+    Engine->>Coordinator: executeTick()
+    Note over Coordinator: Parallel Region Evaluation (Workers 1..4)
+    Note over Coordinator: Phase 5g: Apply Queued Choice Consequences
+    Coordinator->>Choice: drainPendingConsequences()
+    Choice-->>Coordinator: List<ChoiceConsequence>
+    
+    loop For each Consequence
+        Coordinator->>Coordinator: Mutate target survivor needs / health / morale
+        Coordinator->>Coordinator: Create ProposedEvent("CONSEQUENCE_APPLIED", severity=2)
+    end
+
+    Coordinator->>Bus: publish(canonical SimEvents)
+    par Fan-out to Narrator
+        Bus->>Narrator: onEvent(CONSEQUENCE_APPLIED)
+        Narrator-->>Narrator: Render authored consequence caption
+    and Fan-out to Persistence
+        Bus->>AsyncRec: onEvent(CONSEQUENCE_APPLIED)
+    end

@@ -1,0 +1,78 @@
+sequenceDiagram
+    autonumber
+    participant Workers as RegionWorkers (Parallel 1..4)
+    participant Coordinator as TickCoordinator (Sole Writer)
+    participant Migrator as MigrationCoordinator
+    participant Settlement as Settlement
+    participant SourceReg as Source Region
+    participant DestReg as Destination Region
+    participant Survivor as Migrating Survivor
+    participant Handoff as MigrationHandoff (Domain Boundary)
+
+    Note over Workers: Regional Evaluation on Immutable WorldView
+    Workers->>Workers: Survivor decides to relocate
+    Workers-->>Coordinator: RegionResult(regionId, survivorResults, migrationRequests)
+
+    Note over Coordinator: Phase 5a: Deterministic Ordering
+    Coordinator->>Coordinator: Sort rawResults by RegionId
+    Coordinator->>Coordinator: Collect allMigrationRequests
+
+    Note over Coordinator: Phase 5b: Migration Resolution & Handoff
+    Coordinator->>Migrator: applyMigrations(allMigrationRequests)
+
+    alt Duplicate Request for Survivor in Same Tick
+        Note over Migrator: Set<SurvivorId> migratingSurvivors contains survivorId
+        Migrator-->>Coordinator: throw IllegalStateException("Duplicate or conflicting migration request")
+        Coordinator-->>Coordinator: Abort merge, build failed TickResult, tick unadvanced
+    end
+
+    alt Unknown Survivor / Inconsistent Source Region
+        Note over Migrator: Settlement.regionOf(survivorId) != req.sourceRegion()
+        Migrator-->>Coordinator: throw IllegalStateException / IllegalArgumentException
+        Coordinator-->>Coordinator: Abort merge, build failed TickResult, tick unadvanced
+    end
+
+    loop For each Validated MigrationRequest
+        Migrator->>Settlement: survivor(survivorId)
+        Settlement-->>Migrator: Optional<Survivor>
+        Migrator->>Settlement: region(destinationRegion)
+        Settlement-->>Migrator: Optional<Region>
+
+        Migrator->>Handoff: executeMigration(settlement, survivor, sourceRegion, destinationRegion)
+        
+        Note over Handoff: Verify Invariants Before Transfer
+        Note over Handoff: source.contains(survivorId) == true
+        Note over Handoff: destination.contains(survivorId) == false
+
+        Handoff->>SourceReg: removeSurvivor(survivorId)
+        Note over SourceReg: SurvivorId removed from source roster
+
+        Handoff->>DestReg: addSurvivor(survivorId)
+        Note over DestReg: SurvivorId appended to destination roster
+
+        Handoff->>Survivor: setLocation(destinationRegion)
+        Note over Survivor: Location updated to destination RegionId
+
+        Handoff->>Settlement: updateSurvivorRegionIndex(survivorId, destinationRegion)
+        Note over Settlement: Inverted survivorRegionIndex mapped to destination
+
+        Handoff-->>Migrator: Handoff complete
+        Migrator->>Migrator: applied.add(AppliedMigration[survivor, source, dest])
+    end
+
+    Migrator-->>Coordinator: List<AppliedMigration>
+
+    Note over Coordinator: Subsequent Phase 5c Domain Batch Application
+    alt StateChangeApplier.applyBatch Fails / Throws RuntimeException
+        Coordinator->>Migrator: rollbackMigrations(appliedMigrations)
+        loop In Reverse Order of Applied Migrations
+            Migrator->>Handoff: executeMigration(settlement, survivor, destinationRegion, originalSource)
+            Handoff->>DestReg: removeSurvivor(survivorId)
+            Handoff->>SourceReg: addSurvivor(survivorId)
+            Handoff->>Survivor: setLocation(originalSource)
+            Handoff->>Settlement: updateSurvivorRegionIndex(survivorId, originalSource)
+        end
+        Coordinator-->>Coordinator: Abort merge, build failed TickResult (survivors and regions intact)
+    else State Changes Applied Successfully
+        Note over Coordinator: Proceed to Phase 5d Stock, 5e Crises, 5f Interventions, 5g Choices, 5h Chapters
+    end

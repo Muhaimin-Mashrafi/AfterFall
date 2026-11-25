@@ -1,15 +1,23 @@
 sequenceDiagram
     autonumber
-    actor Client
+    actor Client as Client / SimulationService
     participant Engine as SimulationEngine
     participant Lifecycle as SimulationLifecycle
     participant Coordinator as TickCoordinator
     participant World as World (Settlement)
     participant View as WorldView
     participant Pool as RegionWorkerPool (4 Threads)
-    participant Workers as RegionWorker (1..4)
+    participant Workers as 4 RegionWorkers
     participant Migrator as MigrationCoordinator
     participant Applier as StateChangeApplier
+    participant Stock as ResourceStock
+    participant Crisis as CrisisManager
+    participant Observer as ObserverAI
+    participant Choice as ChoiceCoordinator
+    participant Chapter as ChapterManager
+    participant Bus as EventBus
+    participant Narrator as Narrator
+    participant AsyncRec as AsyncEventRecorder
     participant Clock as WorldClock
 
     Client->>Engine: tick()
@@ -18,57 +26,92 @@ sequenceDiagram
 
     Engine->>Coordinator: executeTick()
 
-    Note over Coordinator: Phase 1: Overlap Check & State Guard
+    Note over Coordinator: Phase 1: Overlap Check & State Guard (AtomicBoolean)
     Note over Coordinator: Phase 2: Snapshot Creation
-    Coordinator->>World: snapshot state
+    Coordinator->>World: settlement state check
     Coordinator->>View: snapshot(world, currentTick, currentVersion)
     View-->>Coordinator: immutable WorldView
 
-    Note over Coordinator: Phase 3: Parallel Regional Evaluation (4 Workers)
-    Coordinator->>Pool: invokeAll(4 RegionTasks)
-    par Region 1 Worker
-        Pool->>Workers: Region 1 evaluate()
-        Workers-->>Pool: RegionResult 1
-    and Region 2 Worker
-        Pool->>Workers: Region 2 evaluate()
-        Workers-->>Pool: RegionResult 2
-    and Region 3 Worker
-        Pool->>Workers: Region 3 evaluate()
-        Workers-->>Pool: RegionResult 3
-    and Region 4 Worker
-        Pool->>Workers: Region 4 evaluate()
-        Workers-->>Pool: RegionResult 4
+    Note over Coordinator: Phase 3: Parallel Regional Evaluation
+    Coordinator->>Pool: invokeAll(4 RegionTasks, 5s timeout)
+    par Region NORTH
+        Pool->>Workers: evaluate(NORTH, WorldView, tick, rng)
+        Workers-->>Pool: RegionResult (actions, claims, migrationRequests)
+    and Region SOUTH
+        Pool->>Workers: evaluate(SOUTH, WorldView, tick, rng)
+        Workers-->>Pool: RegionResult
+    and Region EAST
+        Pool->>Workers: evaluate(EAST, WorldView, tick, rng)
+        Workers-->>Pool: RegionResult
+    and Region WEST
+        Pool->>Workers: evaluate(WEST, WorldView, tick, rng)
+        Workers-->>Pool: RegionResult
     end
-    Pool-->>Coordinator: List~Future~RegionResult~~
+    Pool-->>Coordinator: List<Future<RegionResult>>
 
-    Note over Coordinator: Phase 4: Validate Worker Results
+    Note over Coordinator: Phase 4: Validate worker results & task futures
 
     Note over Coordinator: Phase 5: Deterministic Merge (Sole Writer)
-    Note over Coordinator: Sort by RegionId (1..4) and SurvivorId
-    Note over Coordinator: Assign Global Event Sequence Numbers
+    Note over Coordinator: 5a. Canonical Sort by RegionId (1..4) and SurvivorId
+    Note over Coordinator: Assign global sequential event numbering
 
+    Note over Coordinator: 5b. Resolve & execute validated migrations
     Coordinator->>Migrator: applyMigrations(allMigrationRequests)
     alt Migration Fails Validation
-        Migrator-->>Coordinator: Rollback applied & throw
+        Migrator-->>Coordinator: Rollback applied & throw RuntimeException
         Coordinator-->>Engine: TickResult (failed, unadvanced)
     else Migrations Applied Successfully
-        Migrator-->>Coordinator: List~AppliedMigration~
+        Migrator-->>Coordinator: List<AppliedMigration>
+        
+        Note over Coordinator: 5c. Atomically apply survivor actions
         Coordinator->>Applier: applyBatch(proposalsToApply)
         alt Domain Mutation Throws
-            Applier-->>Coordinator: Rollback survivors & throw
+            Applier-->>Coordinator: Rollback survivors & throw RuntimeException
             Coordinator->>Migrator: rollbackMigrations(appliedMigrations)
             Coordinator-->>Engine: TickResult (failed, unadvanced)
-        else Successful Application
-            Applier-->>Coordinator: All mutations applied
-            Note over Coordinator: Phase 6: Advance Time & Build Result
+        else Batch Applied Successfully
+            Applier-->>Coordinator: mutations applied
+            
+            Note over Coordinator: 5d. Resolve resource claims against stock
+            Coordinator->>Stock: consume(food, water, medicine)
+            
+            Note over Coordinator: 5e. Advance crises & apply effects
+            Coordinator->>Crisis: advanceAll(settlement, stock)
+            Crisis-->>Coordinator: List<CrisisEffect>
+            Note over Coordinator: Apply need and vitality deltas
+
+            Note over Coordinator: 5f. Apply queued Observer interventions
+            Coordinator->>Observer: applyQueuedInterventions(settlement, currentTick)
+            Note over Coordinator: Mutate target needs/trust & mark APPLIED
+
+            Note over Coordinator: 5g. Apply queued Choice consequences
+            Coordinator->>Choice: drainPendingConsequences()
+            Note over Coordinator: Mutate target needs/morale & emit CONSEQUENCE_APPLIED
+
+            Note over Coordinator: 5h. Evaluate chapter transitions
+            Coordinator->>Chapter: evaluateTick(settlement, currentTick, shortage)
+            Chapter-->>Coordinator: Optional<ChapterTransition>
+
+            Note over Coordinator: Map ProposedEvents to canonical SimEvents
+            Coordinator->>Bus: publish(canonicalEvents)
+            par Fan-out to Subscribers
+                Bus->>Narrator: onEvent(event)
+                Narrator-->>Narrator: Generate StoryCaption (priority/anti-repetition)
+            and Fan-out to Persistence
+                Bus->>AsyncRec: onEvent(event)
+                AsyncRec-->>AsyncRec: Enqueue to critical / minor queues
+            end
+
+            Note over Coordinator: Phase 6: Advance Time & Increment Version
             Coordinator->>Clock: advance()
             Coordinator-->>Engine: TickResult (success, advanced)
-            Engine->>World: snapshot(world, newTick, newVersion)
+            Engine->>View: snapshot(world, newTick, newVersion)
             Engine-->>Engine: update latestSnapshot
         end
     end
 
-    opt Pause was requested
+    opt Pending Pause or ChoiceMoment Pause Boundary
+        Note over Engine: ChoiceCoordinator.hasPendingPause() == true || PAUSE_REQUESTED
         Engine->>Lifecycle: transitionTo(PAUSED)
     end
 

@@ -1,68 +1,128 @@
-%% AfterFall - UML component diagram (initial, M0)
-%% Solid border = exists at M0: the Spring Boot entry class and empty package-info-only packages.
-%% Dashed border + "(future, Mx)" = planned runtime component, not implemented yet.
-%% Dashed arrows = planned relationships; no runtime relationship exists at M0.
-%% The core depends only on ports (interfaces); Spring supplies adapters (Dependency Inversion).
+%% AfterFall - UML Component Diagram (Implemented Architecture, M12)
+%% Solid borders: Implemented production components.
+%% External/Database: PostgreSQL 17 database.
+%% Dependency direction: Core depends only on domain abstractions. Infrastructure and Web depend on Application/Core.
 flowchart TB
-    classDef implemented fill:#E8E3D9,stroke:#171816,stroke-width:2px,color:#171816
-    classDef future fill:#ffffff,stroke:#827C6D,stroke-width:1px,stroke-dasharray: 5 5,color:#827C6D
-    classDef external fill:#827C6D,stroke:#171816,color:#E8E3D9
+    classDef frontend fill:#ECE8E1,stroke:#171816,stroke-width:2px,color:#171816
+    classDef web fill:#D9D4C7,stroke:#171816,stroke-width:2px,color:#171816
+    classDef app fill:#E2DDD2,stroke:#171816,stroke-width:2px,color:#171816
+    classDef core fill:#FFFFFF,stroke:#171816,stroke-width:2px,color:#171816
+    classDef infra fill:#D0CBC0,stroke:#171816,stroke-width:2px,color:#171816
+    classDef external fill:#827C6D,stroke:#171816,stroke-width:2px,color:#FFFFFF
 
-    subgraph Browser["Browser (HTML/CSS/JS)"]
-        UI["Story-first UI<br/>Opening, Story, People,<br/>Recovered Records, Final Recording<br/>(future, M10-M11)"]:::future
+    subgraph Browser["Browser Client (HTML5 / Vanilla JS / CSS)"]
+        direction TB
+        Screens["Four HTML Screens:<br/>1. index.html (Prologue & Setup)<br/>2. story.html (Observation Deck & Controls)<br/>3. people.html (Biometric Dossier)<br/>4. records.html (Forensic Records & Recap)"]:::frontend
+        JsClients["Client Scripts:<br/>api.js (REST fetch)<br/>ws.js (STOMP over SockJS)"]:::frontend
+        Screens --- JsClients
     end
 
-    subgraph Spring["Spring Boot application / infrastructure layer"]
-        App["AfterFallApplication<br/>(implemented, M0)"]:::implemented
-        Config["config package<br/>(package only, M0; no bean wiring yet)"]:::implemented
-        Rest["web: REST controllers<br/>(future, M9-M10)"]:::future
-        Stomp["web: WebSocket/STOMP broadcaster<br/>(future, M9-M10)"]:::future
-        subgraph Adapters["infrastructure adapters"]
-            JpaAdapter["JpaEventRecorder /<br/>JpaPostgresRunRepository<br/>(future, M9)"]:::future
-            MemAdapter["InMemoryEventRecorder /<br/>InMemoryRunRepository<br/>(future, M9)"]:::future
-            AsyncRec["Async recorder<br/>critical + bounded minor queues<br/>(future, M9)"]:::future
+    subgraph WebLayer["Spring Boot Web & Messaging Layer (com.afterfall.web / config)"]
+        direction TB
+        RestControllers["REST Controllers:<br/>- SimulationApiController (/api/sim/*, /api/state, /api/survivors)<br/>- StoryApiController (/api/story, /api/choices/*)<br/>- ObserverApiController (/api/records, /api/interventions/*)<br/>- MetricsApiController (/api/metrics)"]:::web
+        StompBroadcaster["WebSocket/STOMP Infrastructure:<br/>- WebSocketConfig (/ws endpoint)<br/>- WebSocketBroadcaster (/topic/captions, /topic/events)"]:::web
+    end
+
+    subgraph AppLayer["Application Layer (com.afterfall.application)"]
+        direction TB
+        SimService["SimulationService<br/>(Authoritative orchestrator, lifecycle coordination,<br/>caption dispatch, metrics aggregation, persistence bridge)"]:::app
+        subgraph Ports["Persistence Ports (Interfaces)"]
+            RunRepo["RunRepository"]:::app
+            EventRec["EventRecorder"]:::app
+            EvidenceRepo["EvidenceDiscoveryRepository"]:::app
         end
     end
 
-    subgraph Core["Plain Java simulation core (no Spring/JPA imports)"]
-        Domain["domain package<br/>(package only, M0; model from M1)"]:::implemented
-        SimPkg["simulation package<br/>(package only, M0)"]:::implemented
-        Clock["WorldClock + TickCoordinator<br/>(future, M3-M4)"]:::future
-        Workers["RegionWorkers, ordered merge,<br/>WorldView snapshots, seeded RNG<br/>(future, M3-M4)"]:::future
-        Observer["ObserverAI + 4 policies<br/>(future, M6)"]:::future
-        Bus["EventBus fan-out<br/>(future, M7)"]:::future
-        Narrator["Narrator<br/>(future, M7)"]:::future
-        Choice["ChoiceCoordinator + chapters<br/>(future, M8)"]:::future
+    subgraph CoreLayer["Plain Java Simulation Core (No Spring/JPA Imports)"]
+        direction TB
+        subgraph EnginePkg["Simulation Engine (com.afterfall.simulation)"]
+            Engine["SimulationEngine<br/>(Lifecycle state machine, pause guard)"]:::core
+            TickCoord["TickCoordinator<br/>(Deterministic sole-writer merge)"]:::core
+            Workers["RegionWorkerPool (4 Threads)<br/>& 4 RegionWorkers (NORTH, SOUTH, EAST, WEST)"]:::core
+            Clock["WorldClock & SeededRandomFactory"]:::core
+        end
+
+        subgraph DomainPkg["Domain & Mechanics (com.afterfall.domain / crisis)"]
+            WorldModel["World, Settlement, Region, Survivor"]:::core
+            StockModel["ResourceStock (Food, Water, Medicine)"]:::core
+            CrisisManager["CrisisManager (Famine, Disease)"]:::core
+            MigrationHandoff["MigrationHandoff & MigrationCoordinator"]:::core
+        end
+
+        subgraph ObserverPkg["Observer & Narrative (com.afterfall.observer / narrator / events)"]
+            Observer["ObserverAI & 4 Policies<br/>(InformationDistortion, TrustErosion,<br/>ResourcePressure, SelectiveDisclosure)"]:::core
+            Bus["EventBus<br/>(Isolated subscriber queues)"]:::core
+            NarratorComp["Narrator<br/>(46 authored templates, seed-based selection)"]:::core
+        end
+
+        subgraph StoryPkg["Story & Choices (com.afterfall.choice / chapter / recap)"]
+            ChoiceCoord["ChoiceCoordinator<br/>(ChoiceMoment, decision log, consequences)"]:::core
+            ChapterMgr["ChapterManager<br/>(4 threshold-driven chapters)"]:::core
+            RecapGen["RecapGenerator & EvidenceService<br/>(Forensic comparison, final documentary)"]:::core
+        end
     end
 
-    subgraph Ports["application: persistence ports (interfaces)"]
-        EventRecorder["EventRecorder<br/>(future, M9)"]:::future
-        RunRepository["RunRepository<br/>(future, M9)"]:::future
+    subgraph InfraLayer["Infrastructure Layer (com.afterfall.infrastructure)"]
+        direction TB
+        AsyncRec["AsyncEventRecorder<br/>(Dedicated writer thread, batch flusher)"]:::infra
+        subgraph JPAAdapters["PostgreSQL JPA Adapters"]
+            JpaRun["JpaPostgresRunRepository"]:::infra
+            JpaEvt["JpaEventRecorder"]:::infra
+            JpaEvidence["JpaEvidenceDiscoveryRepository"]:::infra
+            SpringDataRepos["Spring Data Repositories & JPA Entities"]:::infra
+        end
+        subgraph MemAdapters["In-Memory Adapters (Fallback)"]
+            MemRun["InMemoryRunRepository"]:::infra
+            MemEvt["InMemoryEventRecorder"]:::infra
+            MemEvidence["InMemoryEvidenceDiscoveryRepository"]:::infra
+        end
     end
 
-    DB[("PostgreSQL 17<br/>database: afterfall<br/>(not connected; M9)")]:::external
+    DB[("PostgreSQL 17 Database<br/>(localhost:5432 / afterfall)")]:::external
 
-    %% All relationships below are planned (future); none is implemented at M0.
-    UI -. "REST commands (future, M10)" .-> Rest
-    Stomp -. "STOMP updates (future, M10)" .-> UI
-    App -. "component scan (future, M9)" .-> Config
-    Config -. "bean wiring (future, M9)" .-> Clock
-    Rest -. "validated, stamped commands (future, M9)" .-> Clock
-    Clock -. "(future, M3)" .-> Domain
-    Clock -. "(future, M4)" .-> Workers
-    SimPkg -. "will contain (future, M3-M4)" .-> Clock
-    SimPkg -. "will contain (future, M4)" .-> Workers
-    Clock -. "(future, M7)" .-> Bus
-    Observer -. "Intervention commands (future, M6)" .-> Clock
-    Bus -. "(future, M7)" .-> Narrator
-    Bus -. "(future, M6)" .-> Observer
-    Bus -. "(future, M9)" .-> Stomp
-    Bus -. "(future, M9)" .-> AsyncRec
-    Clock -. "(future, M8)" .-> Choice
-    Clock -. "(future, M9)" .-> RunRepository
-    AsyncRec -. "(future, M9)" .-> EventRecorder
-    JpaAdapter -. "implements (future, M9)" .-> EventRecorder
-    JpaAdapter -. "implements (future, M9)" .-> RunRepository
-    MemAdapter -. "implements (future, M9)" .-> EventRecorder
-    MemAdapter -. "implements (future, M9)" .-> RunRepository
-    JpaAdapter -. "(future, M9)" .-> DB
+    %% Client to Web
+    JsClients -->|"HTTP REST Requests"| RestControllers
+    StompBroadcaster -->|"WebSocket / STOMP Events"| JsClients
+
+    %% Web to Application
+    RestControllers -->|"Invoke actions & query state"| SimService
+    SimService -->|"Broadcast captions & events"| StompBroadcaster
+
+    %% Application to Core
+    SimService -->|"Controls lifecycle & ticks"| Engine
+    SimService -->|"Dispatches choices"| ChoiceCoord
+    SimService -->|"Queries evidence & recaps"| RecapGen
+    SimService -->|"Observer approvals/rejections"| Observer
+
+    %% Core Internal Wiring
+    Engine -->|"Executes ticks"| TickCoord
+    TickCoord -->|"Dispatches parallel evaluation"| Workers
+    Workers -->|"Read immutable snapshot"| WorldModel
+    TickCoord -->|"Sole-writer state merge"| DomainPkg
+    TickCoord -->|"Advances time"| Clock
+    TickCoord -->|"Applies intervention commands"| Observer
+    TickCoord -->|"Publishes canonical SimEvents"| Bus
+    TickCoord -->|"Applies consequences"| ChoiceCoord
+    TickCoord -->|"Evaluates chapter thresholds"| ChapterMgr
+    Bus -->|"Event notification"| NarratorComp
+
+    %% Application / Core to Ports
+    SimService -->|"Persists runs & checkpoints"| RunRepo
+    SimService -->|"Records events"| EventRec
+    SimService -->|"Tracks discovery"| EvidenceRepo
+    Bus -.->|"Asynchronous event fan-out"| AsyncRec
+
+    %% Adapters implement Ports (Dependency Inversion)
+    JpaRun -.->|"implements"| RunRepo
+    JpaEvt -.->|"implements"| EventRec
+    JpaEvidence -.->|"implements"| EvidenceRepo
+    MemRun -.->|"implements"| RunRepo
+    MemEvt -.->|"implements"| EventRec
+    MemEvidence -.->|"implements"| EvidenceRepo
+    AsyncRec -->|"Delegates batches"| JpaEvt
+
+    %% Infrastructure to Database
+    JpaRun --> SpringDataRepos
+    JpaEvt --> SpringDataRepos
+    JpaEvidence --> SpringDataRepos
+    SpringDataRepos -->|"JDBC / SQL"| DB

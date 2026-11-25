@@ -1,5 +1,12 @@
 package com.afterfall.application;
 
+import com.afterfall.behavior.BehaviorSelector;
+import com.afterfall.chapter.ChapterTransition;
+import com.afterfall.choice.ChoiceRecord;
+import com.afterfall.events.EventSubscriber;
+import com.afterfall.events.SimEvent;
+import com.afterfall.recap.FinalRecordingGenerator;
+import java.time.Instant;
 import com.afterfall.chapter.ChapterManager;
 import com.afterfall.choice.ChoiceCoordinator;
 import com.afterfall.choice.ChoiceMoment;
@@ -8,7 +15,6 @@ import com.afterfall.events.EventBus;
 import com.afterfall.narrator.Narrator;
 import com.afterfall.narrator.StoryCaption;
 import com.afterfall.observer.InterventionRecord;
-import com.afterfall.observer.InterventionStatus;
 import com.afterfall.observer.ObserverAI;
 import com.afterfall.application.persistence.EvidenceDiscoveryRepository;
 import com.afterfall.application.persistence.EventRecorder;
@@ -60,7 +66,7 @@ public class SimulationService {
         this.eventRecorder = Objects.requireNonNull(eventRecorder, "eventRecorder");
         this.evidenceRepo = Objects.requireNonNull(evidenceRepo, "evidenceRepo");
         this.evidenceService = new EvidenceService();
-        this.recapGenerator = new RecapGenerator(evidenceService, new com.afterfall.recap.FinalRecordingGenerator());
+        this.recapGenerator = new RecapGenerator(evidenceService, new FinalRecordingGenerator());
 
         this.world = InitialPopulation.createDefaultWorld("Haven-1");
         this.clock = new WorldClock(4);
@@ -75,7 +81,7 @@ public class SimulationService {
                 currentRunId,
                 TickCoordinator.DEFAULT_RUN_SEED,
                 world.settlement().population(),
-                java.time.Instant.now(),
+                Instant.now(),
                 null,
                 chapterManager.currentChapter().name(),
                 SimulationLifecycle.PAUSED.name()
@@ -87,14 +93,14 @@ public class SimulationService {
         // Persist canonical events under THIS run's id. The recorder is always wrapped in a
         // run-bound subscriber: AsyncEventRecorder's own subscriber role uses a configured default
         // run id ("current-run"), which would store events apart from the run-1 captions.
-        this.eventBus.register(new com.afterfall.events.EventSubscriber() {
+        this.eventBus.register(new EventSubscriber() {
             @Override
             public String subscriberId() {
                 return "event-recorder-" + currentRunId.value();
             }
 
             @Override
-            public void onEvents(java.util.List<com.afterfall.events.SimEvent> events) {
+            public void onEvents(List<SimEvent> events) {
                 eventRecorder.recordAll(currentRunId, events);
             }
         });
@@ -102,7 +108,7 @@ public class SimulationService {
         this.coordinator = new TickCoordinator(
                 world,
                 clock,
-                new com.afterfall.behavior.BehaviorSelector()::selectAction,
+                new BehaviorSelector()::selectAction,
                 new RegionWorkerPool(),
                 true,
                 new SeededRandomFactory(TickCoordinator.DEFAULT_RUN_SEED),
@@ -120,15 +126,15 @@ public class SimulationService {
         this.captionListeners.add(listener);
     }
 
-    public void addEventSubscriber(com.afterfall.events.EventSubscriber subscriber) {
+    public void addEventSubscriber(EventSubscriber subscriber) {
         this.eventBus.register(subscriber);
     }
 
     /**
      * Returns the internal EventBus for testing purposes only.
-     * Production callers should use {@link #addEventSubscriber(com.afterfall.events.EventSubscriber)}.
+     * Production callers should use {@link #addEventSubscriber(EventSubscriber)}.
      */
-    com.afterfall.events.EventBus eventBus() {
+    EventBus eventBus() {
         return eventBus;
     }
 
@@ -191,10 +197,10 @@ public class SimulationService {
         }
 
         // Persist chapter transitions, choices, and checkpoints
-        for (com.afterfall.chapter.ChapterTransition ct : chapterManager.transitionHistory()) {
+        for (ChapterTransition ct : chapterManager.transitionHistory()) {
             runRepository.recordChapterTransition(currentRunId, ct);
         }
-        for (com.afterfall.choice.ChoiceRecord cr : choiceCoordinator.decisionLog()) {
+        for (ChoiceRecord cr : choiceCoordinator.decisionLog()) {
             runRepository.recordChoice(currentRunId, cr);
         }
         for (InterventionRecord ir : observerAI.records()) {
@@ -218,7 +224,7 @@ public class SimulationService {
                 set.resourceStock().resource(ResourceType.WATER).quantity(),
                 set.resourceStock().resource(ResourceType.MEDICINE).quantity(),
                 chapterManager.currentChapter().name(),
-                java.time.Instant.now()
+                Instant.now()
         ));
 
         return getCurrentState();
@@ -250,7 +256,7 @@ public class SimulationService {
                         c.tick(),
                         c.text(),
                         c.severity().name(),
-                        c.sourceEventIds().stream().map(com.afterfall.domain.EventId::value).toList()
+                        c.sourceEventIds().stream().map(EventId::value).toList()
                 ))
                 .toList();
         return new StoryResponse(chapterManager.currentChapter().name(), clock.tick(), captionDtos, null);
@@ -320,8 +326,8 @@ public class SimulationService {
         RunRecapInputs inputs = runRepository.loadRecapInputs(currentRunId);
 
         // 3. Create immutable snapshots of current survivors to fulfill zero-live-dependency requirement
-        List<com.afterfall.domain.SurvivorSnapshot> snapshots = world.settlement().survivors().stream()
-                .map(com.afterfall.domain.SurvivorSnapshot::from)
+        List<SurvivorSnapshot> snapshots = world.settlement().survivors().stream()
+                .map(SurvivorSnapshot::from)
                 .toList();
 
         RunRecapInputs completeInputs = new RunRecapInputs(

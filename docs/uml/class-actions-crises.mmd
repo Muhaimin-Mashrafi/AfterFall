@@ -1,0 +1,274 @@
+---
+title: "Class diagram 2/5: actions (Command), behaviours (Strategy), resources and crises (Template Method)"
+---
+classDiagram
+    direction TB
+
+    class ActionType {
+        <<enumeration>>
+        EAT
+        WORK
+        REST
+        HEAL
+        MOVE
+    }
+
+    class ActionStatus {
+        <<enumeration>>
+        SUCCESS
+        REJECTED
+    }
+
+    class ProposedEvent {
+        <<record>>
+        +String eventType
+        +SurvivorId survivorId
+        +String summary
+        +int severity
+    }
+
+    class ActionContext {
+        <<record>>
+        +SurvivorSnapshot survivor
+        +RegionId currentRegion
+        +boolean foodAvailable
+        +boolean medicineAvailable
+    }
+
+    class ActionResult {
+        <<record>>
+        +ActionType actionType
+        +ActionStatus status
+        +Optional~String~ rejectionReason
+        +Map~Need, Integer~ needDeltas
+        +int vitalityDelta
+        +Optional~HealthCondition~ newCondition
+        +Map~ItemType, Integer~ inventoryDeltas
+        +int workContribution
+        +Optional~RegionId~ migrationRequest
+        +List~ProposedEvent~ eventProposals
+        +isSuccess() boolean
+        +rejected(type, reason)$ ActionResult
+        +builder(type)$ Builder
+    }
+
+    class Action {
+        <<interface>>
+        +evaluate(context) ActionResult*
+        +type() ActionType*
+    }
+
+    class EatAction {
+        +HUNGER_REDUCTION = 30$
+        +evaluate(context) ActionResult
+        +type() ActionType
+    }
+
+    class WorkAction {
+        +BASE_REST_COST = -15$
+        +evaluate(context) ActionResult
+        +type() ActionType
+    }
+
+    class RestAction {
+        +REST_RESTORE = 25$
+        +evaluate(context) ActionResult
+        +type() ActionType
+    }
+
+    class HealAction {
+        +VITALITY_RECOVERY = 20$
+        +evaluate(context) ActionResult
+        +type() ActionType
+    }
+
+    class MoveAction {
+        -RegionId destination
+        +destination() RegionId
+        +evaluate(context) ActionResult
+        +type() ActionType
+    }
+
+    class BehaviorType {
+        <<enumeration>>
+        SEEK_FOOD
+        WORK
+        REST
+        SEEK_MEDICAL_HELP
+    }
+
+    class BehaviorConfig {
+        <<record>>
+        +int criticalFoodThreshold
+        +int hungerThreshold
+        +int criticalRestThreshold
+        +int fatigueThreshold
+        +int criticalVitalityThreshold
+        +int healthVitalityThreshold
+        +defaultConfig()$ BehaviorConfig
+    }
+
+    class BehaviorContext {
+        <<record>>
+        +SurvivorSnapshot survivor
+        +RegionId currentRegion
+        +boolean foodAvailable
+        +boolean medicineAvailable
+        +List~RegionId~ candidateRegions
+        +of(survivor, currentRegion, food, med)$ BehaviorContext
+        +withCandidates(survivor, currentRegion, food, med, candidates)$ BehaviorContext
+    }
+
+    class Behavior {
+        <<interface>>
+        +decide(context) Optional~Action~*
+        +type() BehaviorType*
+    }
+
+    class SeekFoodBehavior {
+        -BehaviorConfig config
+        +decide(context) Optional~Action~
+        +type() BehaviorType
+    }
+
+    class WorkBehavior {
+        -BehaviorConfig config
+        +decide(context) Optional~Action~
+        +type() BehaviorType
+    }
+
+    class RestBehavior {
+        -BehaviorConfig config
+        +decide(context) Optional~Action~
+        +type() BehaviorType
+    }
+
+    class SeekMedicalHelpBehavior {
+        -BehaviorConfig config
+        +decide(context) Optional~Action~
+        +type() BehaviorType
+    }
+
+    class BehaviorSelector {
+        -BehaviorConfig config
+        -SeekMedicalHelpBehavior medicalBehavior
+        -SeekFoodBehavior foodBehavior
+        -RestBehavior restBehavior
+        -WorkBehavior workBehavior
+        +selectAction(context) Action
+    }
+
+    class ResourceType {
+        <<enumeration>>
+        FOOD
+        WATER
+        MEDICINE
+    }
+
+    class Resource {
+        -ResourceType type
+        -int quantity
+        -ReentrantLock lock
+        +type() ResourceType
+        +quantity() int
+        +add(amount) void
+        +consume(amount) int
+        +isAvailable() boolean
+    }
+
+    class ResourceStock {
+        -Map~ResourceType, Resource~ resources
+        +defaultStock() ResourceStock$
+        +resource(type) Resource
+        +quantity(type) int
+        +isAvailable(type) boolean
+    }
+
+    class Crisis {
+        <<abstract>>
+        -String name
+        -int activeTicks
+        -boolean active
+        +name() String
+        +isActive() boolean
+        +activeTicks() int
+        +advance(settlement, stock) List~CrisisEffect~
+        #checkTrigger(settlement, stock) boolean*
+        #checkResolution(settlement, stock) boolean
+        #collectEffects(settlement, stock) List~CrisisEffect~*
+    }
+
+    class FamineCrisis {
+        -int threshold
+        +DEFAULT_THRESHOLD int$
+        +threshold() int
+        #checkTrigger(settlement, stock) boolean
+        #checkResolution(settlement, stock) boolean
+        #collectEffects(settlement, stock) List~CrisisEffect~
+    }
+
+    class DiseaseOutbreak {
+        -int illThreshold
+        +DEFAULT_ILL_THRESHOLD int$
+        +illThreshold() int
+        #checkTrigger(settlement, stock) boolean
+        #checkResolution(settlement, stock) boolean
+        #collectEffects(settlement, stock) List~CrisisEffect~
+    }
+
+    class CrisisEffect {
+        -SurvivorId targetId
+        -Map~Need, Integer~ needDeltas
+        -int vitalityDelta
+        -Optional~HealthCondition~ newCondition
+        +targetId() SurvivorId
+        +needDeltas() Map
+        +vitalityDelta() int
+        +newCondition() Optional
+        +forSurvivor(targetId) Builder$
+    }
+
+    class CrisisManager {
+        -List~Crisis~ crises
+        +advanceAll(settlement, stock) List~CrisisEffect~
+        +crises() List~Crisis~
+        +hasActiveCrisis() boolean
+    }
+
+    class Survivor {
+    }
+
+    class World {
+    }
+
+    class Settlement {
+    }
+
+    Action <|.. EatAction : implements
+    Action <|.. WorkAction : implements
+    Action <|.. RestAction : implements
+    Action <|.. HealAction : implements
+    Action <|.. MoveAction : implements
+    Action ..> ActionContext : evaluates
+    Action ..> ActionResult : returns
+    Behavior <|.. SeekFoodBehavior : implements
+    Behavior <|.. WorkBehavior : implements
+    Behavior <|.. RestBehavior : implements
+    Behavior <|.. SeekMedicalHelpBehavior : implements
+    Behavior ..> BehaviorContext : inspects
+    Behavior ..> Action : selects
+    BehaviorSelector o-- SeekFoodBehavior
+    BehaviorSelector o-- WorkBehavior
+    BehaviorSelector o-- RestBehavior
+    BehaviorSelector o-- SeekMedicalHelpBehavior
+    BehaviorSelector ..> Action : produces
+    World *-- "1" Settlement : contains
+    Settlement *-- "1" ResourceStock : shared pool
+    Settlement o-- "20..30" Survivor : registers
+    ResourceStock *-- "3" Resource : holds
+    Resource --> ResourceType
+    Crisis <|-- FamineCrisis : extends (Template Method)
+    Crisis <|-- DiseaseOutbreak : extends (Template Method)
+    Crisis ..> CrisisEffect : produces
+    CrisisManager *-- "2" Crisis : manages
+    CrisisManager ..> CrisisEffect : aggregates

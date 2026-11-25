@@ -1,7 +1,6 @@
 package com.afterfall.observer;
 
 import java.util.Objects;
-import java.util.Optional;
 
 /**
  * Immutable audit record representing an Observer observation or intervention.

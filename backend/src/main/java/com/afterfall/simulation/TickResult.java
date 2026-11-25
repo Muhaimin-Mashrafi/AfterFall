@@ -2,11 +2,8 @@ package com.afterfall.simulation;
 
 import com.afterfall.action.ProposedEvent;
 import com.afterfall.action.ResourceClaim;
-import com.afterfall.domain.RegionId;
-import com.afterfall.domain.SurvivorId;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 /**

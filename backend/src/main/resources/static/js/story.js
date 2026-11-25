@@ -54,7 +54,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!state) return;
 
     tickCounter.textContent = state.tick ?? 0;
-    chapterLabel.textContent = (state.chapter ?? 'PROLOGUE').toUpperCase();
+    const chInfo = window.Cinema && Cinema.chapterInfo(state.chapter);
+    chapterLabel.textContent = chInfo ? `${chInfo.roman} · ${chInfo.title}`.toUpperCase() : (state.chapter ?? 'PROLOGUE').toUpperCase();
+    if (window.Cinema) Cinema.noteChapter(state);
 
     // Simulation Pill
     const status = state.lifecycle || state.status || 'UNINITIALIZED';
@@ -105,6 +107,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (caption.urgent || (caption.text && caption.text.toLowerCase().includes('death'))) {
       entry.classList.add('urgent');
     }
+    // Severity drives presentation weight only; the text itself is untouched.
+    if (caption.severity === 'CRITICAL') entry.classList.add('critical');
+    else if (caption.severity === 'SIGNIFICANT') entry.classList.add('significant');
 
     const meta = document.createElement('div');
     meta.className = 'caption-meta';
@@ -290,9 +295,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Subscribe to Events
       WsClient.subscribe('/topic/events', (event) => {
+        if (window.Cinema && event) Cinema.crisisEvent(event);
         if (event && event.type === 'TICK_COMPLETED') {
           tickCounter.textContent = event.tick;
+          if (window.Cinema) Cinema.tickAdvanced(event.tick);
           loadMetrics();
+        } else if (event && (event.type === 'CHAPTER_TRANSITION' || event.type === 'CHAPTER_FORCED')) {
+          ApiClient.getState().then(updateStateDisplay).catch(() => {});
         } else if (event && event.type === 'CHOICE_REQUESTED') {
           refreshState();
         }

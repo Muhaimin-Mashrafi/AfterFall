@@ -98,6 +98,7 @@ document.addEventListener('DOMContentLoaded', () => {
     items.forEach(ev => {
       const card = document.createElement('div');
       card.className = `evidence-card ${ev.isDiscovered ? 'discovered' : 'undiscovered'}`;
+      card.dataset.evidenceId = ev.evidenceId;
 
       card.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:baseline;">
@@ -134,7 +135,12 @@ document.addEventListener('DOMContentLoaded', () => {
   window.handleDiscoverEvidence = async function(id) {
     try {
       await ApiClient.discoverEvidence(id);
-      await loadEvidence();
+      const items = await ApiClient.getEvidence();
+      renderEvidence(items);
+      const found = (items || []).find(e => e.evidenceId === id);
+      if (found && window.Cinema) Cinema.exposeAlteredReport(found);
+      const card = evidenceGrid && evidenceGrid.querySelector(`[data-evidence-id="${id}"]`);
+      if (card) card.classList.add('just-decoded');
     } catch (err) {
       alert('Error decrypting evidence: ' + err.message);
     }
@@ -146,7 +152,11 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         const recap = await ApiClient.getRecap();
         renderRecapModal(recap);
-        recapModal.classList.add('active');
+        if (window.Cinema) {
+          Cinema.playFinalRecording(recap, { onFullRecap: () => recapModal.classList.add('active') });
+        } else {
+          recapModal.classList.add('active');
+        }
       } catch (err) {
         alert('Could not load final recap: ' + err.message);
       }

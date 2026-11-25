@@ -2,8 +2,6 @@ package com.afterfall.simulation;
 
 import com.afterfall.action.ActionResult;
 import com.afterfall.domain.RegionId;
-import com.afterfall.domain.SurvivorId;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;

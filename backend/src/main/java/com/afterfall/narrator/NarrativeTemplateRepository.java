@@ -2,9 +2,7 @@ package com.afterfall.narrator;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * Repository of at least 40 authored narrative template variants across all event types.

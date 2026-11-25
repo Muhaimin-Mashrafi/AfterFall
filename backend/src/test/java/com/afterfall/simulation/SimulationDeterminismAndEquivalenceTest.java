@@ -4,14 +4,11 @@ import com.afterfall.action.Action;
 import com.afterfall.action.ActionContext;
 import com.afterfall.action.ActionResult;
 import com.afterfall.action.ActionType;
-import com.afterfall.behavior.BehaviorContext;
 import com.afterfall.domain.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Function;
 
 import static org.junit.jupiter.api.Assertions.*;
 

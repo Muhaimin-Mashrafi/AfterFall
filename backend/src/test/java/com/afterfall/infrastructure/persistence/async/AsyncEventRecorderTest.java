@@ -10,7 +10,6 @@ import com.afterfall.events.SimEvent;
 import com.afterfall.infrastructure.persistence.inmemory.InMemoryEventRecorder;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;

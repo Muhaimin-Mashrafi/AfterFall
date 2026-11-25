@@ -39,7 +39,7 @@ public class RecapGenerator {
         Set<String> discovered = discoveredEvidenceIds != null ? discoveredEvidenceIds : Collections.emptySet();
 
         String runIdStr = inputs.runId().value();
-        String endingChapter = inputs.metadata() != null ? inputs.metadata().endingChapter() : "CHAPTER_1_A_NEW_BEGINNING";
+        String endingChapter = FinalRecordingGenerator.resolveEndingChapter(inputs);
 
         // Macro metrics from checkpoints or metadata
         int initialPop = inputs.metadata() != null ? inputs.metadata().totalSurvivors() : 25;

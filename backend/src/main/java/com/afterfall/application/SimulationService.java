@@ -54,6 +54,7 @@ public class SimulationService {
 
     private final List<Consumer<StoryCaption>> captionListeners = new CopyOnWriteArrayList<>();
     private int lastCaptionCount = 0;
+    private int lastTransitionCount = 0;
 
     public SimulationService(RunRepository runRepository, EventRecorder eventRecorder, EvidenceDiscoveryRepository evidenceRepo) {
         this.runRepository = Objects.requireNonNull(runRepository, "runRepository");
@@ -191,9 +192,11 @@ public class SimulationService {
         }
 
         // Persist chapter transitions, choices, and checkpoints
-        for (com.afterfall.chapter.ChapterTransition ct : chapterManager.transitionHistory()) {
-            runRepository.recordChapterTransition(currentRunId, ct);
+        List<com.afterfall.chapter.ChapterTransition> transitions = chapterManager.transitionHistory();
+        for (int i = lastTransitionCount; i < transitions.size(); i++) {
+            runRepository.recordChapterTransition(currentRunId, transitions.get(i));
         }
+        lastTransitionCount = transitions.size();
         for (com.afterfall.choice.ChoiceRecord cr : choiceCoordinator.decisionLog()) {
             runRepository.recordChoice(currentRunId, cr);
         }

@@ -69,4 +69,41 @@ class FinalRecordingTest {
             }
         }
     }
+
+    @Test
+    @DisplayName("Duplicate transitions collapse; choices and Observer records become scenes; ending chapter is the last transition")
+    void testStoryBeatsAndEndingChapter() {
+        ChapterTransition t1 = new ChapterTransition(48L, ChapterType.CHAPTER_1_A_NEW_BEGINNING, ChapterType.CHAPTER_2_THE_FRACTURE, "Hard backstop triggered: x", true);
+        ChapterTransition t2 = new ChapterTransition(96L, ChapterType.CHAPTER_2_THE_FRACTURE, ChapterType.CHAPTER_3_THE_REVELATION, "Evidence surfaced", false);
+        List<ChapterTransition> transitions = new java.util.ArrayList<>();
+        for (int i = 0; i < 50; i++) { transitions.add(t1); transitions.add(t2); }
+        List<StoryCaption> captions = new java.util.ArrayList<>();
+        for (int i = 0; i < 40; i++) {
+            captions.add(new StoryCaption(i, 100 + i, "A quiet watch number " + i + ".", EventSeverity.MINOR, List.of(new EventId(i + 1)), List.of()));
+        }
+        captions.add(new StoryCaption(99, 120L, "The east shelter stood vacant by morning.", EventSeverity.CRITICAL, List.of(new EventId(99)), List.of(new SurvivorId(3))));
+        captions.add(new StoryCaption(100, 96L, "Chapter III: The Revelation began: Evidence surfaced", EventSeverity.CRITICAL, List.of(), List.of()));
+
+        RunRecapInputs inputs = new RunRecapInputs(
+                RunId.of("r"),
+                new RunMetadata(RunId.of("r"), 1L, 25, Instant.now(), null, "CHAPTER_1_A_NEW_BEGINNING", "RUNNING"),
+                transitions,
+                List.of(new com.afterfall.choice.ChoiceRecord("c1", 60L, "CHAPTER_2_THE_FRACTURE", "o1", "Share the stores", "Trust rose", false)),
+                List.of(new com.afterfall.observer.InterventionRecord(1L, 70L, com.afterfall.observer.InterventionType.TRUST_EROSION, "Survivor #2",
+                        "r", "i", "a", com.afterfall.observer.InterventionStatus.APPLIED, "o", "a")),
+                captions,
+                Collections.emptyList());
+
+        FinalRecording rec = generator.generate(inputs);
+
+        assertEquals("CHAPTER_3_THE_REVELATION", rec.endingChapter());
+        assertTrue(rec.scenes().size() <= FinalRecordingGenerator.MAX_SCENES);
+        assertEquals(rec.scenes().size(), rec.scenes().stream().map(RecordingScene::narrativeText).distinct().count());
+        assertEquals(2, rec.scenes().stream().filter(s -> s.narrativeText().contains("began")).count());
+        assertTrue(rec.scenes().stream().anyMatch(s -> s.narrativeText().contains("Share the stores") && s.chapter().equals("CHAPTER_2_THE_FRACTURE")));
+        assertTrue(rec.scenes().stream().anyMatch(s -> s.narrativeText().startsWith("Day 18. Observer record:")));
+        assertTrue(rec.scenes().stream().anyMatch(s -> s.narrativeText().contains("vacant by morning") && !s.sourceEventIds().isEmpty()));
+        assertTrue(rec.scenes().stream().noneMatch(s -> s.narrativeText().contains("Hard backstop")));
+        assertEquals(FinalRecording.MANDATORY_CLOSING_LINE, rec.closingLine());
+    }
 }

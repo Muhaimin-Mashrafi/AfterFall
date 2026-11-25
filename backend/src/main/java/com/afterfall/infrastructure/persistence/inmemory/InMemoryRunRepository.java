@@ -31,7 +31,7 @@ public final class InMemoryRunRepository implements RunRepository {
     private final ConcurrentMap<RunId, List<RunCheckpoint>> checkpoints = new ConcurrentHashMap<>();
     private final ConcurrentMap<RunId, ConcurrentMap<String, ChoiceRecord>> choices = new ConcurrentHashMap<>();
     private final ConcurrentMap<RunId, ConcurrentMap<Long, InterventionRecord>> interventions = new ConcurrentHashMap<>();
-    private final ConcurrentMap<RunId, List<ChapterTransition>> chapters = new ConcurrentHashMap<>();
+    private final ConcurrentMap<RunId, CopyOnWriteArrayList<ChapterTransition>> chapters = new ConcurrentHashMap<>();
     private final ConcurrentMap<RunId, ConcurrentMap<Long, StoryCaption>> captions = new ConcurrentHashMap<>();
 
     @Override
@@ -119,7 +119,7 @@ public final class InMemoryRunRepository implements RunRepository {
     public void recordChapterTransition(RunId runId, ChapterTransition transition) {
         if (runId != null && transition != null) {
             chapters.computeIfAbsent(runId, k -> new CopyOnWriteArrayList<>())
-                    .add(transition);
+                    .addIfAbsent(transition);
         }
     }
 

@@ -574,3 +574,9 @@ Generated from Spring Initializr (start.spring.io) using its current default sta
 - 2026-11-19: M1 Session 1 implemented and verified (human domain model, 63 new tests; 65 total passing).
 - 2026-11-19: M0 implemented and verified (Spring Boot 4.1.2 skeleton, package boundaries, boundary test, initial component diagram, README build commands).
 - 2026-11-18: Environment setup guided; JDK 21 and PostgreSQL 17.12 verified; `afterfall` database created; VS Code workspace and Java extension pack prepared; private GitHub repository created; revised solo blueprint adopted as source of truth.
+
+## Recap / Final Recording fix (2026-11-25, branch based on PR 2)
+- Cause: `SimulationService.stepTick` re-recorded the whole chapter transition history every tick, so persisted history held ~900 duplicate transitions; `FinalRecordingGenerator` (scenes capped by count) filled with them and never reached real captions. `endingChapter` was read from run metadata written once at start (always CHAPTER_1).
+- Fix: record only new transitions (service counter + idempotent in-memory/JPA adapters); `FinalRecordingGenerator` now builds up to 14 scenes from distinct transitions (plain wording), choices, labelled "Observer record" interventions and severity-ranked, evenly thinned captions, each labelled with the chapter at its tick; ending chapter derived from the last persisted transition. API shape, determinism and closing line unchanged.
+- Tests: new `RecapFromRealRunTest`, extended `FinalRecordingTest`. Full suite: 308 run, 11 errors, all `Postgres17LiveIntegrationTest` (no PostgreSQL 17 in the cloud container).
+- Note: in a default 400-tick run the hard backstop still fires for all three chapter changes (pacing, not touched here).

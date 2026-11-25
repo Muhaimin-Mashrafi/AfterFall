@@ -2,6 +2,12 @@ package com.afterfall.recap;
 
 import com.afterfall.application.persistence.RunRecapInputs;
 import com.afterfall.chapter.ChapterTransition;
+import com.afterfall.chapter.ChapterType;
+import com.afterfall.choice.ChoiceRecord;
+import com.afterfall.domain.EventId;
+import com.afterfall.domain.SurvivorId;
+import com.afterfall.events.EventSeverity;
+import com.afterfall.observer.InterventionRecord;
 import com.afterfall.narrator.StoryCaption;
 import com.afterfall.narrator.NarrativeTemplateRepository;
 
@@ -23,65 +29,157 @@ import java.util.*;
  */
 public class FinalRecordingGenerator {
 
+    /** Upper bound on scenes so the recording stays a short documentary. */
+    static final int MAX_SCENES = 14;
+
+    /**
+     * The chapter the run actually ended in: the destination of the latest persisted
+     * chapter transition, else the recorded metadata chapter, else Chapter I.
+     */
+    public static String resolveEndingChapter(RunRecapInputs inputs) {
+        List<ChapterTransition> transitions = new ArrayList<>(inputs.chapterTransitions());
+        transitions.sort(Comparator.comparingLong(ChapterTransition::tick));
+        if (!transitions.isEmpty()) {
+            return transitions.get(transitions.size() - 1).toChapter().name();
+        }
+        if (inputs.metadata() != null && inputs.metadata().endingChapter() != null) {
+            return inputs.metadata().endingChapter();
+        }
+        return ChapterType.CHAPTER_1_A_NEW_BEGINNING.name();
+    }
+
     /**
      * Synthesizes the Final Recording from immutable recap inputs.
+     *
+     * <p>Scenes are real story beats: chapter changes, player choices, Observer records
+     * and the most significant narrator captions. Duplicate transitions and captions are
+     * collapsed, and each scene is labelled with the chapter in force at its tick.
      */
     public FinalRecording generate(RunRecapInputs inputs) {
         Objects.requireNonNull(inputs, "inputs");
 
         String runIdStr = inputs.runId().value();
-        String endingChapter = inputs.metadata() != null ? inputs.metadata().endingChapter() : "CHAPTER_4_THE_LAST_RECORDING";
+        String endingChapter = resolveEndingChapter(inputs);
+
+        List<ChapterTransition> transitions = distinctTransitions(inputs.chapterTransitions());
         long finalTick = 0L;
 
-        List<RecordingScene> scenes = new ArrayList<>();
-
-        // 1. Gather milestone scenes from chapter transitions
-        for (ChapterTransition ct : inputs.chapterTransitions()) {
+        // Mandatory beats: always kept.
+        List<RecordingScene> mandatory = new ArrayList<>();
+        for (ChapterTransition ct : transitions) {
             finalTick = Math.max(finalTick, ct.tick());
-            String text = "Day " + (ct.tick() / 4 + 1) + ". Transition toward " + ct.toChapter().displayName() + ": " + ct.triggerReason();
-            validateNoBannedTerms(text);
-            scenes.add(new RecordingScene(ct.tick(), ct.toChapter().name(), text, Collections.emptyList(), Collections.emptyList()));
+            mandatory.add(scene(ct.tick(), ct.toChapter().name(), transitionText(ct), List.of(), List.of()));
+        }
+        for (ChoiceRecord cr : inputs.choices()) {
+            finalTick = Math.max(finalTick, cr.tick());
+            String text = "Day " + day(cr.tick()) + ". A decision was recorded: " + cr.optionLabel()
+                    + (cr.consequenceSummary() == null || cr.consequenceSummary().isBlank() ? "" : ". " + cr.consequenceSummary());
+            mandatory.add(scene(cr.tick(), chapterAt(transitions, cr.tick()), text, List.of(), List.of()));
+        }
+        for (InterventionRecord ir : inputs.interventions()) {
+            finalTick = Math.max(finalTick, ir.tick());
+            // Observer claims are labelled so they stay distinguishable from simulation facts.
+            String text = "Day " + day(ir.tick()) + ". Observer record: " + ir.type().name().toLowerCase(Locale.ROOT).replace('_', ' ')
+                    + " concerning " + ir.targetDescription() + ".";
+            mandatory.add(scene(ir.tick(), chapterAt(transitions, ir.tick()), text, List.of(), List.of()));
         }
 
-        // 2. Select significant narrative captions (captions with priority or marking turning points)
-        for (StoryCaption c : inputs.captions()) {
+        // Narrator captions: distinct text only, most severe first, thinned evenly over time.
+        List<StoryCaption> captions = distinctCaptions(inputs.captions(), transitions);
+        for (StoryCaption c : captions) {
             finalTick = Math.max(finalTick, c.tick());
-            // Filter to significant or critical captions for the documentary summary
-            if (c.severity() == com.afterfall.events.EventSeverity.CRITICAL ||
-                c.severity() == com.afterfall.events.EventSeverity.SIGNIFICANT ||
-                scenes.size() < 12) {
-                validateNoBannedTerms(c.text());
-                scenes.add(new RecordingScene(
-                        c.tick(),
-                        endingChapter,
-                        c.text(),
-                        c.sourceEventIds(),
-                        c.referencedSurvivorIds()
-                ));
+        }
+        int budget = Math.max(0, MAX_SCENES - mandatory.size());
+        List<StoryCaption> chosen = new ArrayList<>();
+        if (budget > 0) {
+            List<StoryCaption> critical = captions.stream().filter(c -> c.severity() == EventSeverity.CRITICAL).toList();
+            List<StoryCaption> significant = captions.stream().filter(c -> c.severity() == EventSeverity.SIGNIFICANT).toList();
+            List<StoryCaption> minor = captions.stream().filter(c -> c.severity() == EventSeverity.MINOR).toList();
+            for (List<StoryCaption> tier : List.of(critical, significant, minor)) {
+                int room = budget - chosen.size();
+                if (room <= 0) break;
+                chosen.addAll(thin(tier, room));
             }
         }
 
-        // Ensure chronological order
+        List<RecordingScene> scenes = new ArrayList<>(mandatory);
+        for (StoryCaption c : chosen) {
+            scenes.add(scene(c.tick(), chapterAt(transitions, c.tick()), c.text(), c.sourceEventIds(), c.referencedSurvivorIds()));
+        }
+        // Stable sort keeps the deterministic insertion order for equal ticks.
         scenes.sort(Comparator.comparingLong(RecordingScene::tick));
 
-        // If no captions or scenes exist (e.g. empty tick 0 run), provide an initial documentary scene
         if (scenes.isEmpty()) {
             scenes.add(new RecordingScene(
                     0L,
-                    "CHAPTER_1_A_NEW_BEGINNING",
+                    ChapterType.CHAPTER_1_A_NEW_BEGINNING.name(),
                     "The observation experiment commenced under quiet surveillance.",
                     Collections.emptyList(),
                     Collections.emptyList()
             ));
         }
 
-        return new FinalRecording(
-                runIdStr,
-                finalTick,
-                endingChapter,
-                scenes,
-                FinalRecording.MANDATORY_CLOSING_LINE
-        );
+        return new FinalRecording(runIdStr, finalTick, endingChapter, scenes, FinalRecording.MANDATORY_CLOSING_LINE);
+    }
+
+    private RecordingScene scene(long tick, String chapter, String text, List<EventId> events, List<SurvivorId> survivors) {
+        validateNoBannedTerms(text);
+        return new RecordingScene(tick, chapter, text, events, survivors);
+    }
+
+    private static long day(long tick) {
+        return tick / 4 + 1;
+    }
+
+    /** Plain-language transition line; mechanical trigger text (e.g. backstop) is not shown. */
+    private static String transitionText(ChapterTransition ct) {
+        String lead = "Day " + day(ct.tick()) + ". " + ct.toChapter().displayName() + " began";
+        return ct.isForced() ? lead + " as the weeks wore on." : lead + ": " + ct.triggerReason();
+    }
+
+    private static List<ChapterTransition> distinctTransitions(List<ChapterTransition> raw) {
+        List<ChapterTransition> sorted = new ArrayList<>(new LinkedHashSet<>(raw));
+        sorted.sort(Comparator.comparingLong(ChapterTransition::tick));
+        return sorted;
+    }
+
+    private static String chapterAt(List<ChapterTransition> transitions, long tick) {
+        String chapter = ChapterType.CHAPTER_1_A_NEW_BEGINNING.name();
+        for (ChapterTransition ct : transitions) {
+            if (ct.tick() <= tick) chapter = ct.toChapter().name();
+        }
+        return chapter;
+    }
+
+    private static List<StoryCaption> distinctCaptions(List<StoryCaption> raw, List<ChapterTransition> transitions) {
+        List<StoryCaption> sorted = new ArrayList<>(raw);
+        sorted.sort(Comparator.comparingLong(StoryCaption::tick).thenComparingLong(StoryCaption::captionId));
+        Set<String> seen = new HashSet<>();
+        List<StoryCaption> out = new ArrayList<>();
+        for (StoryCaption c : sorted) {
+            if (isTransitionEcho(c, transitions)) continue;
+            if (seen.add(c.text())) out.add(c);
+        }
+        return out;
+    }
+
+    /** Narrator lines announcing a chapter change are already covered by the transition scene. */
+    private static boolean isTransitionEcho(StoryCaption c, List<ChapterTransition> transitions) {
+        if (c.text().contains("Hard backstop")) return true;
+        for (ChapterTransition ct : transitions) {
+            if (ct.tick() == c.tick() && c.text().contains(ct.toChapter().displayName())) return true;
+        }
+        return false;
+    }
+
+    /** Picks up to {@code max} items spread evenly across the (chronological) list. */
+    private static List<StoryCaption> thin(List<StoryCaption> items, int max) {
+        if (items.size() <= max) return items;
+        List<StoryCaption> out = new ArrayList<>(max);
+        for (int i = 0; i < max; i++) {
+            out.add(items.get((int) ((long) i * items.size() / max)));
+        }
+        return out;
     }
 
     private void validateNoBannedTerms(String text) {

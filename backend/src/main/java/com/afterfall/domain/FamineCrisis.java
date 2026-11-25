@@ -26,7 +26,7 @@ public final class FamineCrisis extends Crisis {
     static final int FOOD_NEED_PENALTY = -15;
 
     /** Vitality penalty per active tick. */
-    static final int VITALITY_PENALTY = -5;
+    static final int VITALITY_PENALTY = -1;
 
     private final int threshold;
 

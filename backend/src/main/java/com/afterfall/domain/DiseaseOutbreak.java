@@ -29,7 +29,7 @@ public final class DiseaseOutbreak extends Crisis {
     static final int SPREAD_SAFETY_THRESHOLD = 50;
 
     /** Vitality penalty applied to affected survivors each tick. */
-    static final int VITALITY_PENALTY = -8;
+    static final int VITALITY_PENALTY = -1;
 
     private final int illThreshold;
 

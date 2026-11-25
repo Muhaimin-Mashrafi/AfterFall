@@ -24,6 +24,9 @@ import java.util.Optional;
  */
 public final class ObserverAI {
 
+    /** Minimum ticks between two interventions of the same type (4 ticks = 1 day). */
+    public static final int COOLDOWN_TICKS = 4;
+
     private final List<InterventionPolicy> policies;
     private final List<InterventionRecord> records = new ArrayList<>();
     private final java.util.Map<InterventionType, Long> lastInterventionTickByType = new java.util.EnumMap<>(InterventionType.class);
@@ -58,9 +61,9 @@ public final class ObserverAI {
         ObservationReport report = ObservationReport.from(worldView, settlement);
 
         for (InterventionPolicy policy : policies) {
-            // Prevent duplicate intervention of the same policy type on consecutive ticks (cooldown: at least 1 tick gap)
+            // Per-type cooldown: the same policy cannot fire again within COOLDOWN_TICKS (1 day).
             Long lastTick = lastInterventionTickByType.get(policy.type());
-            if (lastTick != null && lastTick == worldView.tick()) {
+            if (lastTick != null && worldView.tick() - lastTick < COOLDOWN_TICKS) {
                 continue;
             }
 

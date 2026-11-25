@@ -10,6 +10,7 @@ import com.afterfall.chapter.ChapterManager;
 import com.afterfall.chapter.ChapterTransition;
 import com.afterfall.choice.ChoiceConsequence;
 import com.afterfall.choice.ChoiceCoordinator;
+import com.afterfall.choice.LiveChoiceMoments;
 import com.afterfall.domain.*;
 import com.afterfall.events.EventBus;
 import com.afterfall.events.EventSeverity;
@@ -53,6 +54,9 @@ public final class TickCoordinator {
     private final boolean ownsWorkerPool;
     private final SeededRandomFactory randomFactory;
     private final MigrationCoordinator migrationCoordinator;
+    /** Observer exposure added each time an intervention is applied (traces accumulate). */
+    static final int EXPOSURE_PER_INTERVENTION = 10;
+
     private final CrisisManager crisisManager;
     private final ObserverAI observerAI;
     private final EventBus eventBus;
@@ -211,6 +215,10 @@ public final class TickCoordinator {
         // Phase 2: build one immutable WorldView for the entire tick
         WorldView worldView = WorldView.snapshot(world, currentTick, currentVersion);
 
+        // Observer analysis reads only this immutable snapshot; the proposal is queued and applied
+        // at this tick's merge boundary (step 5f), never by a worker or by thread timing.
+        observerAI.analyzeAndPropose(worldView, settlement, randomFactory).ifPresent(interventionQueue::offer);
+
         // Phase 3: Parallel regional evaluation
         List<RegionTask> tasks = new ArrayList<>(RegionWorkerPool.WORKER_COUNT);
         for (RegionId regionId : RegionId.ALL) {
@@ -266,6 +274,7 @@ public final class TickCoordinator {
         List<MigrationRequest> allMigrationRequests = new ArrayList<>();
         LinkedHashMap<Survivor, ActionResult> proposalsToApply = new LinkedHashMap<>();
 
+        int totalWorkContribution = 0;
         int survivorsProcessed = 0;
         int accepted = 0;
         int rejected = 0;
@@ -307,6 +316,7 @@ public final class TickCoordinator {
 
                 if (result.isSuccess()) {
                     accepted++;
+                    totalWorkContribution += result.workContribution();
                     proposalsToApply.put(liveSurvivor, result);
                 } else {
                     rejected++;
@@ -360,8 +370,28 @@ public final class TickCoordinator {
             stock.resource(mapToResourceType(claim.resourceType())).consume(claim.quantity());
         }
 
+        // 5d'. Settlement upkeep: food produced by this tick's work, then hunger drift
+        SettlementUpkeep.produceFood(stock, totalWorkContribution, currentTick);
+        SettlementUpkeep.applyHungerDrift(settlement, currentTick);
+
+        // 5d''. Malnutrition: the weakest healthy survivor falls ill (at most one per tick)
+        SettlementUpkeep.applyMalnutritionIllness(settlement);
+        SettlementUpkeep.applyRecovery(settlement);
+        SettlementUpkeep.applyResilience(settlement, currentTick);
+
         // 5e. Advance crises and apply their effects as the sole writer
+        Set<String> activeBefore = new HashSet<>();
+        for (Crisis crisis : crisisManager.crises()) {
+            if (crisis.isActive()) {
+                activeBefore.add(crisis.name());
+            }
+        }
         List<CrisisEffect> crisisEffects = crisisManager.advanceAll(settlement, stock);
+        for (Crisis crisis : crisisManager.crises()) {
+            if (crisis.isActive() && !activeBefore.contains(crisis.name())) {
+                announceCrisis(crisis, settlement, currentTick, allEvents);
+            }
+        }
         for (CrisisEffect effect : crisisEffects) {
             settlement.survivor(effect.targetId()).ifPresent(survivor -> {
                 for (Map.Entry<Need, Integer> e : effect.needDeltas().entrySet()) {
@@ -373,6 +403,11 @@ public final class TickCoordinator {
                 effect.newCondition().ifPresent(survivor.health()::setCondition);
             });
         }
+
+        // 5e'. Resolve deaths from vitality reaching zero
+        List<ProposedEvent> deathEvents = SettlementUpkeep.resolveDeaths(settlement);
+        allEvents.addAll(deathEvents);
+        nextGlobalEventSequence += deathEvents.size();
 
         // 5f. Apply queued Observer interventions at safe tick boundary
         applyQueuedInterventions(settlement, currentTick);
@@ -530,8 +565,30 @@ public final class TickCoordinator {
             }
         }
 
+        chapterManager.recordVisibleIntervention();
+        chapterManager.incrementExposureLevel(EXPOSURE_PER_INTERVENTION);
         observerAI.record(intervention, InterventionStatus.APPLIED,
                 "Applied at tick " + currentTick + " boundary with intended effect: " + intervention.intendedEffect());
+    }
+
+    /** Emits a CRITICAL crisis event and raises its choice moment (once per crisis, never over a pending one). */
+    private void announceCrisis(Crisis crisis, Settlement settlement, long currentTick, List<ProposedEvent> allEvents) {
+        List<SurvivorId> alive = settlement.survivors().stream()
+                .filter(Survivor::isAlive).map(Survivor::id).toList();
+        if (alive.isEmpty()) {
+            return;
+        }
+        boolean famine = crisis instanceof FamineCrisis;
+        allEvents.add(new ProposedEvent(famine ? "CRISIS_FAMINE" : "CRISIS_DISEASE", alive.get(0),
+                crisis.name() + " began in the settlement.", 3));
+        nextGlobalEventSequence++;
+        String choiceId = famine ? LiveChoiceMoments.FAMINE_ID : LiveChoiceMoments.OUTBREAK_ID;
+        if (!choiceCoordinator.hasPendingPause() && choiceCoordinator.getChoiceMoment(choiceId).isEmpty()) {
+            String chapterId = chapterManager.currentChapter().name();
+            choiceCoordinator.triggerChoice(famine
+                    ? LiveChoiceMoments.famine(currentTick, chapterId, alive)
+                    : LiveChoiceMoments.outbreak(currentTick, chapterId, alive));
+        }
     }
 
     private void applyQueuedChoiceConsequences(Settlement settlement, long currentTick, List<ProposedEvent> allEvents) {

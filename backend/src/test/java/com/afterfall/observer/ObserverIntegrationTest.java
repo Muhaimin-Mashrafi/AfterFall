@@ -41,7 +41,9 @@ class ObserverIntegrationTest {
         world = new World(settlement);
         clock = new WorldClock(4);
         pool = new RegionWorkerPool();
-        observerAI = new ObserverAI();
+        // No automatic policies: these tests queue interventions by hand, and the live coordinator
+        // now also runs the Observer's own analysis each tick.
+        observerAI = new ObserverAI(java.util.List.of());
         coordinator = new TickCoordinator(
                 world, clock,
                 ctx -> new com.afterfall.behavior.BehaviorSelector().selectAction(ctx),

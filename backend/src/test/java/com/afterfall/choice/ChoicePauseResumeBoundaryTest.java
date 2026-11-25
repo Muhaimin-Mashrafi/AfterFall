@@ -131,6 +131,8 @@ class ChoicePauseResumeBoundaryTest {
         assertThat(tick4.isSuccess()).isTrue();
         assertThat(tick4.tickNumber()).isEqualTo(4L);
         assertThat(clock.tick()).isEqualTo(4L);
-        assertThat(world.settlement().resourceStock().quantity(ResourceType.FOOD)).isEqualTo(foodAtPause + 25);
+        // (settlement upkeep may forage one unit on this tick, but never a second +25)
+        assertThat(world.settlement().resourceStock().quantity(ResourceType.FOOD))
+                .isBetween(foodAtPause + 25, foodAtPause + 25 + 1);
     }
 }

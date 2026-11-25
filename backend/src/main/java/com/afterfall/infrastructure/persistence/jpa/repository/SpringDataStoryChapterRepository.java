@@ -9,4 +9,6 @@ import java.util.List;
 @Repository
 public interface SpringDataStoryChapterRepository extends JpaRepository<StoryChapterEntity, Long> {
     List<StoryChapterEntity> findByRunIdOrderByTickAsc(String runId);
+
+    boolean existsByRunIdAndTickAndFromChapterAndToChapter(String runId, long tick, String fromChapter, String toChapter);
 }

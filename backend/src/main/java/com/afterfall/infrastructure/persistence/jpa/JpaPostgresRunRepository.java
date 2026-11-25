@@ -219,6 +219,10 @@ public class JpaPostgresRunRepository implements RunRepository {
     @Transactional
     public void recordChapterTransition(RunId runId, ChapterTransition ct) {
         if (runId == null || ct == null) return;
+        if (chapterRepo.existsByRunIdAndTickAndFromChapterAndToChapter(
+                runId.value(), ct.tick(), ct.fromChapter().name(), ct.toChapter().name())) {
+            return;
+        }
         chapterRepo.save(new StoryChapterEntity(
                 runId.value(),
                 ct.tick(),

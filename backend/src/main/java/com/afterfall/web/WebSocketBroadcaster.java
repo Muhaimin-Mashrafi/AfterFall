@@ -29,6 +29,7 @@ public class WebSocketBroadcaster implements EventSubscriber {
     @PostConstruct
     public void init() {
         simulationService.addCaptionListener(this::broadcastCaption);
+        simulationService.addEventSubscriber(this);
     }
 
     @Override

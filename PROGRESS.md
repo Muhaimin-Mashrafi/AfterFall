@@ -5,7 +5,7 @@ This file is the handoff point between Claude Code sessions. Update it after eve
 ## Current status
 - Project: AfterFall - The Last Days of Humanity
 - Canonical specification: `docs/blueprint/AfterFall-Blueprint-Revised-Solo.md`
-- Current milestone: M12 completed and verified (Full Integration, Quality Assurance, UML, Documentation and Checkpoint Demonstration; all 300 tests passing, 0 failures, 0 errors, 0 skipped; clean shutdown, determinism with 0-50ms jitter, restart recovery, UML diagrams, comprehensive README, and 7-minute demo showcase verified).
+- Current milestone: M13 in progress (Phases 1, 2 & 4 complete: Feature Freeze declared; 8 Bug Bash scenarios executed; empirical verification completed for hard JVM termination/persistence recovery, live WebSocket automatic reconnection without manual connect(), 100-entry DOM chronicle cap, and responsive layouts across 1366x768 and 1920x1080; 303 total passing tests).
 - Application code: Spring Boot skeleton, domain models, autonomous behaviors, action commands, 4-worker multithreaded simulation engine, deterministic merge, batch rollback, lifecycle state management, resource pools, crises, ObserverAI, EventBus fan-out, template-driven Narrator, Choice moments & consequence application, threshold-driven Chapter policies, dual-adapter persistence with asynchronous recording, Story-First HTML/CSS/JS web frontend, and Hidden Records & Final Documentary Recap.
 - Last updated: 2026-11-25
 
@@ -31,7 +31,15 @@ This file is the handoff point between Claude Code sessions. Update it after eve
 - Expected Git name: `Abdullah Al Muhaimin`.
 - Git email should be the GitHub noreply address configured by the user. Do not print or change it unless necessary.
 
+## Master Development Sequence
+
+1. **AfterFall V1 (M0–M13):** Current active baseline. Core single-player simulation, 4-worker concurrency, narrative chronicles, dual-adapter persistence, story-first browser frontend, and documentary recaps.
+2. **AfterFall: Observer Embodiment (O0–O9):** First-person 3D embodiment expansion in Godot 4. Player physically walks the settlement as the Observer with authoritative Java backend connectivity. Prerequisite for V2.
+3. **AfterFall V2:** Multiplayer expansion introducing human-controlled Guardian vs Observer asymmetric intelligence warfare.
+
 ## Milestone tracker
+
+### Active Track: AfterFall V1
 | Milestone | Scope | Status |
 |---|---|---|
 | Environment | JDK, Git, PostgreSQL, VS Code, workspace | Mostly complete; verify extensions and Git remote |
@@ -48,10 +56,57 @@ This file is the handoff point between Claude Code sessions. Update it after eve
 | M10 | Story-first frontend: four core pages plus operator controls | Complete (2026-11-24) |
 | M11 | Recovered records and final recap | Complete (2026-11-25) |
 | M12 | Integration, tests, UML, docs and checkpoint demo | Complete (2026-11-25) |
-| M13 | Feature freeze, bug bash, three rehearsals and fallback recording | Not started |
-| M14 (SHOULD) | Audience voting | Not started |
-| M15 (SHOULD) | Scale to about 100 survivors | Not started |
-| M16 (SHOULD) | Fifth chapter, more records, imagery and optional map | Not started |
+| M13 | Feature freeze, bug bash, three rehearsals and fallback recording | In progress (Phases 1 & 2 complete: Freeze declared, 8 Bug Bash scenarios verified; 303 tests) |
+| M14 (SHOULD) | Audience voting | Deferred / Optional |
+| M15 (SHOULD) | Scale to about 100 survivors | Deferred / Optional |
+| M16 (SHOULD) | Fifth chapter, more records, imagery and optional map | Deferred / Optional |
+
+### Future Track: Observer Embodiment (Planned, Post-M13)
+*Transforms AfterFall from browser UI into an immersive first-person 3D simulation client (Godot 4 + Blender), backed by the authoritative Java 21 simulation engine.*
+
+| Milestone | Scope | Status |
+|---|---|---|
+| O0 | Architecture, Godot setup and backend connectivity | Future / Planned |
+| O1 | Human Observer body and first-person controller | Future / Planned |
+| O2 | 3D settlement environment | Future / Planned |
+| O3 | Survivor models, navigation and movement | Future / Planned |
+| O4 | Social interactions and contextual conversations | Future / Planned |
+| O5 | Observer perception, proximity and inspection | Future / Planned |
+| O6 | Physical Observer intervention interface | Future / Planned |
+| O7 | Live manipulation-to-reaction visualization | Future / Planned |
+| O8 | Survivor awareness and cinematic storytelling | Future / Planned |
+| O9 | Full integration, performance and standalone release | Future / Planned |
+
+#### Observer Embodiment MVP Acceptance Criteria
+Before expanding the environment, the initial MVP must demonstrate:
+1. One explorable 3D settlement environment.
+2. First-person Observer movement with human-looking hands/body.
+3. Ten visible simulated survivors driven by real backend state.
+4. Autonomous survivor navigation and movement between stations.
+5. Contextual conversations reflecting real survivor relationships.
+6. Individual survivor inspection dossier interface.
+7. Three existing Observer intervention policies executed physically.
+8. At least one complete intervention-to-visible-reaction sequence.
+9. Live connectivity with the authoritative Java 21 simulation engine.
+
+#### Observer Embodiment Final Acceptance Gate
+Must satisfy:
+- Player physically explores settlement in first-person with occasional third-person cinematic camera transitions.
+- Survivors perform genuine simulation-driven activities (no invented decorative logic).
+- Conversations reflect real relationships, memories, and circumstances.
+- Observer interventions produce traceable visual and behavioral reactions.
+- Survivor awareness of Observer develops according to defined simulation rules.
+- Standalone Windows client build running smoothly alongside backend.
+- Full preservation of existing V1 functionality and test coverage.
+
+### Future Track: AfterFall V2 (Planned, Post-O9)
+*Asymmetric multiplayer intelligence warfare: Human Observer vs Human Guardian.*
+- Full V2 development begins strictly after O0–O9 is accepted.
+- Second human-controlled player: Guardian (active counterpart, not AI script).
+- Asymmetric information horizons and independent intelligence consoles.
+- Covert intelligence warfare with counter-interventions.
+- Survivor beliefs, memories, and emerging social factions.
+- Multiple branching endings based on player choices and survivor survival.
 
 ## Locked MUST scope
 - 20-30 configurable survivors.
@@ -83,7 +138,17 @@ This file is the handoff point between Claude Code sessions. Update it after eve
 - None. M0 through M7 completed and verified (222 passing tests).
 - Awaiting user approval on M7 completion to proceed to M8 (Choices, consequences and four threshold-driven chapters).
 
-## Latest completed task: M12 - Full Integration, Quality Assurance, UML, Documentation and Checkpoint Demonstration (2026-11-25)
+## Latest completed task: M13 Phases 1 & 2 - Feature Freeze & Bug Bash Execution (2026-11-25)
+Declared formal feature freeze for AfterFall V1. Executed all 8 prioritized Bug Bash scenarios across P0, P1, and P2 categories, with reinforced empirical verification on three critical scenarios:
+1. **Hard JVM Termination & Database Recovery (P0):** Executed actual live simulation stepping to tick 5, queried active `/api/recap` and `/api/story`, and forcibly terminated the live JVM process (`Stop-Process -Force` on PID 10760). Verified directly against PostgreSQL 17 relational tables (`simulation_events`, `caption_entries`, `run_checkpoints`, `simulation_runs`) that all 62 captions, events, and checkpoints remained intact. Documented explicit architectural boundary: persisted history and documentary recaps survive 100% across restarts, while in-flight ephemeral worker threads require re-initialising the engine at the persisted state.
+2. **WebSocket Disconnect & Reconnect (P1):** Executed automated browser testing via Microsoft Edge headless browser on `story.html`. Tested initial STOMP connection (`STREAM LIVE`), invoked `WsClient.disconnect()`, re-connected, and executed UI `STEP TICK`, confirming live event delivery, UI button responsiveness, and zero duplicate subscriptions.
+3. **Responsive Layouts at 1366x768 & 1920x1080 (P2):** Evaluated all 4 screens (`index.html`, `story.html`, `people.html`, `records.html`) at viewports `1366x768` and `1920x1080`. Confirmed `hasHorizontalScroll = false` across all 8 configurations, with intact grid wrapping, zero text clipping, and fully operational navigation links.
+
+**New Tests Added**
+- `backend/src/test/java/com/afterfall/simulation/BugBashRegressionTest.java` (3 new automated tests).
+- Full Maven test suite: **303 tests run, 0 failures, 0 errors, 0 skipped**.
+
+## Previous completed task: M12 - Full Integration, Quality Assurance, UML, Documentation and Checkpoint Demonstration (2026-11-25)
 Successfully completed and verified all six steps of Milestone M12:
 
 1. **Concurrency & Determinism Verification Suite (Step 1):**
@@ -486,6 +551,15 @@ Generated from Spring Initializr (start.spring.io) using its current default sta
 
 
 ## Session log
+- 2026-11-25: M13 Phase 4 Final Visual and Performance Refinement completed. Verified:
+  - Visual consistency and zero horizontal overflow across all 4 screens (`index.html`, `story.html`, `people.html`, `records.html`) at 1366x768 and 1920x1080.
+  - Modal layering and z-indices verified for `#choice-modal` and `#recap-modal` (z-index 1000).
+  - Performance cap of 100 chronicle entries in DOM strictly enforced under 200+ tick load (`streamFeed.children.length` <= 100).
+  - Memory consumption stable with no element leak (JS heap delta: -0.90 MB after 115 ticks).
+  - Genuine WebSocket disconnection and automatic reconnection verified via exponential backoff without manual `connect()` invocation.
+  - EventBroadcaster wired to EventBus, delivering tick events and documentary captions seamlessly to STOMP topic `/topic/events` and `/topic/captions`.
+  - Full Maven test suite: 303 tests run, 0 failures, 0 errors, 0 skipped.
+- 2026-11-25: M13 Phases 1 & 2 Bug Bash completed (303 tests; JVM kill/recovery, WS interruption, responsive testing).
 - 2026-11-20: M1 Session 2 implemented and verified (Region, Settlement, World, PopulationConfig, InitialPopulation, class-diagram.mmd; 88 total passing tests).
 - 2026-11-20: M1 Session 1 four targeted domain-model corrections implemented and verified (68 total passing tests).
 - 2026-11-19: M1 Session 1 implemented and verified (human domain model, 63 new tests; 65 total passing).

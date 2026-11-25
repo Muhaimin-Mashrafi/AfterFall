@@ -48,6 +48,14 @@ The solo MUST scope is deliberately limited:
 
 Audience voting, a settlement map, approximately 100 survivors, a fifth chapter, additional crises, factions, trading, replay, sound and external LLM narration are not MUST. Never let optional work delay the MUST milestone.
 
+## 4.1 Master Development Sequence & Strategic Roadmap
+The official long-term roadmap follows a strict three-phase progression:
+1. **AfterFall V1 (Milestones M0 through M13):** Current active development priority. Full single-player simulation, 4-worker concurrency, dual-adapter persistence, story-first web UI, and documentary recap.
+2. **AfterFall: Observer Embodiment (Milestones O0 through O9):** Separate presentation expansion beginning strictly AFTER M13 completion and V1 release. Transforms the browser UI into a first-person 3D client (Godot 4 / Blender) where the player physically inhabits the settlement as the Observer with human body/hands, physical interventions, contextual conversations, and survivor awareness. The Java simulation core remains authoritative; Godot is a client visualizer. Direct prerequisite for V2.
+3. **AfterFall V2 (Multiplayer Expansion):** Asymmetric multiplayer intelligence warfare between two human-controlled players (Observer vs Guardian), with independent consoles, counter-interventions, survivor memory factions, and branching endings. Begins strictly after O0–O9 is accepted.
+
+Do not introduce Observer Embodiment or V2 implementation tasks into Milestone M13. M13 is dedicated exclusively to V1 feature freeze, bug bash, rehearsals, and release preparation.
+
 ## 5. Architecture boundaries
 - Keep the simulation/domain core as plain Java. It must not import Spring, Spring MVC, WebSocket, JPA or PostgreSQL classes.
 - Spring Boot is the application/infrastructure layer: REST, STOMP, dependency injection, configuration and adapters.

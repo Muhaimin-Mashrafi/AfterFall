@@ -69,6 +69,13 @@ class AfterFallWS {
         }
     }
 
+    disconnect() {
+        if (this.socket) {
+            this.socket.close();
+        }
+        this.connected = false;
+    }
+
     scheduleReconnect() {
         const delay = Math.min(5000, 1000 * Math.pow(1.5, this.reconnectAttempts++));
         setTimeout(() => this.connect(), delay);
@@ -96,6 +103,11 @@ const WsClient = {
         defaultWsClient = new AfterFallWS('/ws', opts.onConnect, opts.onDisconnect);
         defaultWsClient.connect();
         return defaultWsClient;
+    },
+    disconnect: () => {
+        if (defaultWsClient) {
+            defaultWsClient.disconnect();
+        }
     },
     subscribe: (topic, callback) => {
         if (!defaultWsClient) {

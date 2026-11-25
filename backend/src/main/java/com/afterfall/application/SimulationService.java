@@ -84,6 +84,25 @@ public class SimulationService {
         // Register narrator to EventBus
         this.eventBus.register(narrator);
 
+        // Register eventRecorder to EventBus so canonical events are persisted
+        if (this.eventRecorder instanceof com.afterfall.events.EventSubscriber subscriber) {
+            this.eventBus.register(subscriber);
+        } else {
+            this.eventBus.register(new com.afterfall.events.EventSubscriber() {
+                @Override
+                public String subscriberId() {
+                    return "event-recorder-" + currentRunId.value();
+                }
+
+                @Override
+                public void onEvents(java.util.List<com.afterfall.events.SimEvent> events) {
+                    for (com.afterfall.events.SimEvent event : events) {
+                        eventRecorder.record(currentRunId, event);
+                    }
+                }
+            });
+        }
+
         this.coordinator = new TickCoordinator(
                 world,
                 clock,
@@ -103,6 +122,18 @@ public class SimulationService {
 
     public void addCaptionListener(Consumer<StoryCaption> listener) {
         this.captionListeners.add(listener);
+    }
+
+    public void addEventSubscriber(com.afterfall.events.EventSubscriber subscriber) {
+        this.eventBus.register(subscriber);
+    }
+
+    /**
+     * Returns the internal EventBus for testing purposes only.
+     * Production callers should use {@link #addEventSubscriber(com.afterfall.events.EventSubscriber)}.
+     */
+    com.afterfall.events.EventBus eventBus() {
+        return eventBus;
     }
 
     public synchronized StateResponse getCurrentState() {

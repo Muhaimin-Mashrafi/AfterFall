@@ -580,3 +580,10 @@ Generated from Spring Initializr (start.spring.io) using its current default sta
 - Fix: record only new transitions (service counter + idempotent in-memory/JPA adapters); `FinalRecordingGenerator` now builds up to 14 scenes from distinct transitions (plain wording), choices, labelled "Observer record" interventions and severity-ranked, evenly thinned captions, each labelled with the chapter at its tick; ending chapter derived from the last persisted transition. API shape, determinism and closing line unchanged.
 - Tests: new `RecapFromRealRunTest`, extended `FinalRecordingTest`. Full suite: 308 run, 11 errors, all `Postgres17LiveIntegrationTest` (no PostgreSQL 17 in the cloud container).
 - Note: in a default 400-tick run the hard backstop still fires for all three chapter changes (pacing, not touched here).
+
+## Demo pacing fix (2026-11-25)
+- Finding: the live loop was static. Needs never decayed, food was never produced or consumed, deaths never resolved, and `ObserverAI.analyzeAndPropose` was never called, so every chapter change came from the hard backstop (ticks 48/96/144) with no crisis or death.
+- Change: new `SettlementUpkeep` (hunger drift 2/tick, 1 food per 180 work, death at vitality 0) applied by `TickCoordinator` after claim resolution; the Observer now analyses the tick's immutable snapshot and its proposal is applied at that tick's merge; applied interventions add visible-intervention count and +10 exposure; `ObserverAI.COOLDOWN_TICKS = 4` per policy type; Famine vitality penalty -5 to -2.
+- Default run (seed unchanged): Ch1->2 tick 36 (Observer intervention), Ch2->3 tick 56 (exposure 60), Ch3->4 tick 86 (population below 15); 0 forced; Famine from tick 45; settlement extinct by about tick 100. Before: 3 forced transitions, 0 crises, 0 deaths.
+- Not done (out of scope): Disease Outbreak never triggers in the default run; Choice moments are still never requested by the live loop.
+- Tests: `DefaultRunPacingTest` added; `ObserverIntegrationTest` now uses an inert Observer so only hand-queued interventions apply.

@@ -9,6 +9,6 @@ public record StoryResponse(
         ChoiceMomentDto activeChoice
 ) {
     public record CaptionDto(long captionId, long tick, String text, String severity, List<Long> sourceEvents) {}
-    public record ChoiceMomentDto(String choiceId, String dilemmaText, String chapter, List<OptionDto> options) {}
+    public record ChoiceMomentDto(String choiceId, String title, String dilemmaText, String chapter, List<OptionDto> options) {}
     public record OptionDto(String optionId, String label, String consequencePreview) {}
 }

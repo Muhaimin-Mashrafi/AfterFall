@@ -196,9 +196,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // 5. Choice Presentation
   function presentChoice(choice) {
     if (!choice) return;
-    activeChoiceId = choice.id || choice.choiceId;
+    activeChoiceId = choice.choiceId || choice.id;
     choiceDilemmaTitle.textContent = choice.title || 'MOMENT OF HARD CHOICE';
-    choiceDilemmaDesc.textContent = choice.dilemma || choice.description || 'A critical fork in the shelter’s survival path has emerged.';
+    choiceDilemmaDesc.textContent = choice.dilemmaText || choice.dilemma || choice.description || 'A critical fork in the shelter’s survival path has emerged.';
 
     choiceOptionsList.innerHTML = '';
     const options = choice.options || [];
@@ -210,7 +210,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="text-sm font-bold text-ivory" style="margin-bottom: 0.25rem;">${opt.text || opt.label}</div>
         <div class="text-xs text-dim">${opt.consequencePreview || opt.preview || 'Action will alter trajectory immediately.'}</div>
       `;
-      btn.onclick = () => submitChoiceSelection(activeChoiceId, opt.id || idx);
+      btn.onclick = () => submitChoiceSelection(activeChoiceId, opt.optionId ?? opt.id ?? idx);
       choiceOptionsList.appendChild(btn);
     });
 
@@ -332,6 +332,13 @@ document.addEventListener('DOMContentLoaded', () => {
       // Modal backdrop click cannot bypass pause
     }
   });
+
+  // The world clock runs on the server; while it is RUNNING, follow it so a choice
+  // moment opens as soon as the run pauses for it.
+  setInterval(() => {
+    const st = simStatePill.textContent;
+    if (st === 'RUNNING' || st === 'PAUSE_REQUESTED') refreshState();
+  }, 2000);
 
   // Start initialization
   refreshState();

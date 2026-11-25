@@ -600,3 +600,10 @@ Generated from Spring Initializr (start.spring.io) using its current default sta
 - Ran the packaged app (`inmemory` profile, seed 42, 25 survivors) through the default run via REST and Chromium. Rewrote `docs/demo/DEMO_SCRIPT.md` (run map, 7-minute budget, `Step-To` / `Answer` PowerShell helpers, Q6 to Q9, known rough edges), `REHEARSAL_PACK.md` and `FALLBACK_VIDEO_PLAN.md`.
 - Findings left unfixed (no code touched): `START`/`RESUME` do not tick, only `STEP TICK` does; `getStory()` always returns `activeChoice = null`, so the choice dialog never opens (answer via `POST /api/choices/{id}`); recap scene list is 66 of 71 repeated Observer-record lines with no deaths; chronicle uncapped (about 2,200 entries by tick 180) without PR 5.
 - Next: decide whether to fix the choice dialog and add an auto-run clock before the demo.
+
+
+## Demo controls, choice dialog and recap fix (2026-11-25)
+- START/RESUME now run an auto-advancing WorldClock (blueprint section 5: the simulation runs independently of the browser). `SimulationService` ticks every `afterfall.clock.tick-interval-ms` (default 1000; 0 disables, tests construct the service with 0). Ticks stay seed-driven, so determinism is unaffected. The clock stops at a choice, and answering resumes it. STEP ONE TICK still works.
+- `/api/story` now returns `activeChoice` (adds `title`); `POST /api/choices/{id}` accepts `optionId` as well as `optionIndex`. `story.js` field names fixed, plus a 2 s poll while RUNNING.
+- Final recording: Observer records capped at 3 distinct, one beat per survivor, no repeated generic death lines.
+- Tests: `DemoControlsAndChoiceTest`. Full suite 313 run, 11 errors, all `Postgres17LiveIntegrationTest` (no PostgreSQL 17 here).

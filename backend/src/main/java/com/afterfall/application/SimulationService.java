@@ -84,24 +84,20 @@ public class SimulationService {
         // Register narrator to EventBus
         this.eventBus.register(narrator);
 
-        // Register eventRecorder to EventBus so canonical events are persisted
-        if (this.eventRecorder instanceof com.afterfall.events.EventSubscriber subscriber) {
-            this.eventBus.register(subscriber);
-        } else {
-            this.eventBus.register(new com.afterfall.events.EventSubscriber() {
-                @Override
-                public String subscriberId() {
-                    return "event-recorder-" + currentRunId.value();
-                }
+        // Persist canonical events under THIS run's id. The recorder is always wrapped in a
+        // run-bound subscriber: AsyncEventRecorder's own subscriber role uses a configured default
+        // run id ("current-run"), which would store events apart from the run-1 captions.
+        this.eventBus.register(new com.afterfall.events.EventSubscriber() {
+            @Override
+            public String subscriberId() {
+                return "event-recorder-" + currentRunId.value();
+            }
 
-                @Override
-                public void onEvents(java.util.List<com.afterfall.events.SimEvent> events) {
-                    for (com.afterfall.events.SimEvent event : events) {
-                        eventRecorder.record(currentRunId, event);
-                    }
-                }
-            });
-        }
+            @Override
+            public void onEvents(java.util.List<com.afterfall.events.SimEvent> events) {
+                eventRecorder.recordAll(currentRunId, events);
+            }
+        });
 
         this.coordinator = new TickCoordinator(
                 world,

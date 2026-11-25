@@ -23,10 +23,15 @@ import com.afterfall.recap.RecapGenerator;
 import com.afterfall.recap.RunRecap;
 import com.afterfall.simulation.*;
 import com.afterfall.web.dto.*;
+import jakarta.annotation.PreDestroy;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 /**
@@ -55,6 +60,10 @@ public class SimulationService {
     private final List<Consumer<StoryCaption>> captionListeners = new CopyOnWriteArrayList<>();
     private int lastCaptionCount = 0;
     private int lastTransitionCount = 0;
+
+    /** Wall-clock pause between auto-run ticks; 0 disables auto-run (manual STEP TICK only). */
+    private long autoRunIntervalMs = 0;
+    private ScheduledExecutorService autoRunner;
 
     public SimulationService(RunRepository runRepository, EventRecorder eventRecorder, EvidenceDiscoveryRepository evidenceRepo) {
         this.runRepository = Objects.requireNonNull(runRepository, "runRepository");
@@ -152,8 +161,55 @@ public class SimulationService {
         return new StateResponse("run-1", tick, status.name(), chapter, alive, dead, resources, hasPending, hasPending);
     }
 
+    /**
+     * Sets the wall-clock interval of the auto-running WorldClock (blueprint section 5: the
+     * simulation runs independently of the browser). Tick content never depends on this value,
+     * only on the seed and the ordered decision log, so determinism is unaffected.
+     */
+    @Value("${afterfall.clock.tick-interval-ms:1000}")
+    public synchronized void setAutoRunIntervalMs(long intervalMs) {
+        this.autoRunIntervalMs = Math.max(0, intervalMs);
+    }
+
+    private synchronized void ensureAutoRunner() {
+        if (autoRunIntervalMs <= 0 || autoRunner != null) {
+            return;
+        }
+        autoRunner = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "afterfall-world-clock");
+            t.setDaemon(true);
+            return t;
+        });
+        autoRunner.scheduleWithFixedDelay(this::autoTick, autoRunIntervalMs, autoRunIntervalMs, TimeUnit.MILLISECONDS);
+    }
+
+    private void autoTick() {
+        try {
+            synchronized (this) {
+                // Only a RUNNING engine ticks; a pending choice or pause request leaves it PAUSED.
+                if (engine.getStatus() == SimulationLifecycle.RUNNING && !choiceCoordinator.hasPendingPause()) {
+                    stepTick();
+                }
+            }
+        } catch (Exception e) {
+            // A failed tick must be visible, not silently retried: pause the run.
+            synchronized (this) {
+                try { engine.pause(); } catch (RuntimeException ignored) { }
+            }
+        }
+    }
+
+    @PreDestroy
+    public synchronized void shutdownAutoRunner() {
+        if (autoRunner != null) {
+            autoRunner.shutdownNow();
+            autoRunner = null;
+        }
+    }
+
     public synchronized StateResponse startSimulation() {
         engine.start();
+        ensureAutoRunner();
         return getCurrentState();
     }
 
@@ -163,7 +219,10 @@ public class SimulationService {
     }
 
     public synchronized StateResponse resumeSimulation() {
-        engine.resume();
+        if (!choiceCoordinator.hasPendingPause()) {
+            engine.resume();
+            ensureAutoRunner();
+        }
         return getCurrentState();
     }
 
@@ -246,6 +305,17 @@ public class SimulationService {
         }
     }
 
+    private synchronized StoryResponse.ChoiceMomentDto activeChoiceDto() {
+        return choiceCoordinator.pendingChoice()
+                .filter(m -> !m.isResolved())
+                .map(m -> new StoryResponse.ChoiceMomentDto(
+                        m.id(), m.title(), m.prompt(), m.chapterId(),
+                        m.options().stream()
+                                .map(o -> new StoryResponse.OptionDto(o.optionId(), o.label(), o.description()))
+                                .toList()))
+                .orElse(null);
+    }
+
     public StoryResponse getStory() {
         List<StoryResponse.CaptionDto> captionDtos = narrator.captions().stream()
                 .map(c -> new StoryResponse.CaptionDto(
@@ -256,7 +326,20 @@ public class SimulationService {
                         c.sourceEventIds().stream().map(com.afterfall.domain.EventId::value).toList()
                 ))
                 .toList();
-        return new StoryResponse(chapterManager.currentChapter().name(), clock.tick(), captionDtos, null);
+        return new StoryResponse(chapterManager.currentChapter().name(), clock.tick(), captionDtos, activeChoiceDto());
+    }
+
+    /** Answers the pending choice by option id (what the browser modal sends). */
+    public synchronized StateResponse choose(String choiceId, String optionId) {
+        int index = -1;
+        Optional<ChoiceMoment> pending = choiceCoordinator.pendingChoice();
+        if (pending.isPresent()) {
+            List<com.afterfall.choice.ChoiceOption> opts = pending.get().options();
+            for (int i = 0; i < opts.size(); i++) {
+                if (opts.get(i).optionId().equals(optionId)) { index = i; break; }
+            }
+        }
+        return choose(choiceId, index);
     }
 
     public synchronized StateResponse choose(String choiceId, int optionIndex) {
@@ -268,6 +351,10 @@ public class SimulationService {
                 optionId = moment.options().get(optionIndex).optionId();
             }
             choiceCoordinator.submitDecision(choiceId, optionId);
+            if (autoRunIntervalMs > 0 && engine.getStatus() == SimulationLifecycle.PAUSED) {
+                engine.resume(); // answered at the tick boundary: the clock carries on
+                ensureAutoRunner();
+            }
         }
         return getCurrentState();
     }

@@ -28,8 +28,10 @@ public class StoryApiController {
             @PathVariable String choiceId,
             @RequestBody ChoiceSelectionRequest request) {
 
-        int optIdx = request.optionIndex() != null ? request.optionIndex() : 0;
-        StateResponse updated = simulationService.choose(choiceId, optIdx);
+        int optIdx = request.optionIndex() != null ? request.optionIndex() : -1;
+        StateResponse updated = request.optionIndex() == null && request.optionId() != null
+                ? simulationService.choose(choiceId, request.optionId())
+                : simulationService.choose(choiceId, Math.max(optIdx, 0));
         return ResponseEntity.ok(updated);
     }
 }

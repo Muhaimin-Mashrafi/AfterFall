@@ -31,6 +31,8 @@ public class FinalRecordingGenerator {
 
     /** Upper bound on scenes so the recording stays a short documentary. */
     static final int MAX_SCENES = 14;
+    /** Cap on Observer record scenes so they never crowd out deaths, crises and choices. */
+    static final int MAX_OBSERVER_RECORDS = 3;
 
     /**
      * The chapter the run actually ended in: the destination of the latest persisted
@@ -76,7 +78,7 @@ public class FinalRecordingGenerator {
                     + (cr.consequenceSummary() == null || cr.consequenceSummary().isBlank() ? "" : ". " + cr.consequenceSummary());
             mandatory.add(scene(cr.tick(), chapterAt(transitions, cr.tick()), text, List.of(), List.of()));
         }
-        for (InterventionRecord ir : inputs.interventions()) {
+        for (InterventionRecord ir : distinctInterventions(inputs.interventions())) {
             finalTick = Math.max(finalTick, ir.tick());
             // Observer claims are labelled so they stay distinguishable from simulation facts.
             String text = "Day " + day(ir.tick()) + ". Observer record: " + ir.type().name().toLowerCase(Locale.ROOT).replace('_', ' ')
@@ -95,10 +97,28 @@ public class FinalRecordingGenerator {
             List<StoryCaption> critical = captions.stream().filter(c -> c.severity() == EventSeverity.CRITICAL).toList();
             List<StoryCaption> significant = captions.stream().filter(c -> c.severity() == EventSeverity.SIGNIFICANT).toList();
             List<StoryCaption> minor = captions.stream().filter(c -> c.severity() == EventSeverity.MINOR).toList();
+            Set<String> usedKeys = new HashSet<>();
+            Set<SurvivorId> usedSurvivors = new HashSet<>();
             for (List<StoryCaption> tier : List.of(critical, significant, minor)) {
                 int room = budget - chosen.size();
                 if (room <= 0) break;
-                chosen.addAll(thin(tier, room));
+                // One beat per survivor and one per generic line, so no name or line repeats.
+                List<StoryCaption> eligible = new ArrayList<>();
+                Set<String> tierKeys = new HashSet<>(usedKeys);
+                Set<SurvivorId> tierSurvivors = new HashSet<>(usedSurvivors);
+                for (StoryCaption c : tier) {
+                    List<SurvivorId> refs = c.referencedSurvivorIds();
+                    boolean survivorSeen = tierSurvivors.stream().anyMatch(refs::contains);
+                    if (survivorSeen || !tierKeys.add(genericKey(c.text()))) continue;
+                    tierSurvivors.addAll(refs);
+                    eligible.add(c);
+                }
+                List<StoryCaption> picked = thin(eligible, room);
+                for (StoryCaption c : picked) {
+                    usedKeys.add(genericKey(c.text()));
+                    usedSurvivors.addAll(c.referencedSurvivorIds());
+                }
+                chosen.addAll(picked);
             }
         }
 
@@ -137,6 +157,23 @@ public class FinalRecordingGenerator {
         return ct.isForced() ? lead + " as the weeks wore on." : lead + ": " + ct.triggerReason();
     }
 
+    /** Observer records are repetitive by nature: one per distinct (type, target), at most a few overall. */
+    private static List<InterventionRecord> distinctInterventions(List<InterventionRecord> raw) {
+        List<InterventionRecord> sorted = new ArrayList<>(raw);
+        sorted.sort(Comparator.comparingLong(InterventionRecord::tick));
+        Set<String> seen = new HashSet<>();
+        List<InterventionRecord> distinct = new ArrayList<>();
+        for (InterventionRecord ir : sorted) {
+            if (seen.add(ir.type().name() + "|" + ir.targetDescription())) distinct.add(ir);
+        }
+        if (distinct.size() <= MAX_OBSERVER_RECORDS) return distinct;
+        List<InterventionRecord> out = new ArrayList<>(MAX_OBSERVER_RECORDS);
+        for (int i = 0; i < MAX_OBSERVER_RECORDS; i++) {
+            out.add(distinct.get((int) ((long) i * distinct.size() / MAX_OBSERVER_RECORDS)));
+        }
+        return out;
+    }
+
     private static List<ChapterTransition> distinctTransitions(List<ChapterTransition> raw) {
         List<ChapterTransition> sorted = new ArrayList<>(new LinkedHashSet<>(raw));
         sorted.sort(Comparator.comparingLong(ChapterTransition::tick));
@@ -149,6 +186,11 @@ public class FinalRecordingGenerator {
             if (ct.tick() <= tick) chapter = ct.toChapter().name();
         }
         return chapter;
+    }
+
+    /** Same line for different quadrants/days counts as one generic beat. */
+    private static String genericKey(String text) {
+        return text.replaceAll("^Day \\d+\\. ", "").replaceAll("Quadrant \\d", "Quadrant");
     }
 
     private static List<StoryCaption> distinctCaptions(List<StoryCaption> raw, List<ChapterTransition> transitions) {

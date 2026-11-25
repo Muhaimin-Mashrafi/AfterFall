@@ -8,7 +8,6 @@ import com.afterfall.behavior.BehaviorContext;
 import com.afterfall.behavior.BehaviorSelector;
 import com.afterfall.chapter.ChapterManager;
 import com.afterfall.chapter.ChapterTransition;
-import com.afterfall.chapter.ChapterType;
 import com.afterfall.choice.ChoiceConsequence;
 import com.afterfall.choice.ChoiceCoordinator;
 import com.afterfall.domain.*;
@@ -16,7 +15,6 @@ import com.afterfall.events.EventBus;
 import com.afterfall.events.EventSeverity;
 import com.afterfall.events.SimEvent;
 import com.afterfall.observer.Intervention;
-import com.afterfall.observer.InterventionRecord;
 import com.afterfall.observer.InterventionStatus;
 import com.afterfall.observer.ObserverAI;
 

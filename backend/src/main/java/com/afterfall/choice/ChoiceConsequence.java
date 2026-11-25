@@ -4,7 +4,6 @@ import com.afterfall.domain.Need;
 import com.afterfall.domain.ResourceType;
 import com.afterfall.domain.SurvivorId;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;

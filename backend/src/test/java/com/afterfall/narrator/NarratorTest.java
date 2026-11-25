@@ -11,7 +11,6 @@ import com.afterfall.simulation.WorldClock;
 import com.afterfall.simulation.RegionWorkerPool;
 import com.afterfall.simulation.CrisisManager;
 import com.afterfall.observer.ObserverAI;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 

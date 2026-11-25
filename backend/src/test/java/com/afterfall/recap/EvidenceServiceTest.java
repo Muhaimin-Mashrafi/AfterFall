@@ -1,7 +1,5 @@
 package com.afterfall.recap;
 
-import com.afterfall.domain.EventId;
-import com.afterfall.domain.SurvivorId;
 import com.afterfall.observer.InterventionRecord;
 import com.afterfall.observer.InterventionStatus;
 import com.afterfall.observer.InterventionType;

@@ -7,7 +7,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
-import java.util.stream.Collectors;
 
 /**
  * Immutable snapshot of the world at a specific tick.

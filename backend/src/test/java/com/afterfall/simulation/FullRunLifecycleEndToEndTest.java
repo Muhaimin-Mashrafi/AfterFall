@@ -1,6 +1,5 @@
 package com.afterfall.simulation;
 
-import com.afterfall.application.SimulationService;
 import com.afterfall.application.persistence.EvidenceDiscoveryRepository;
 import com.afterfall.application.persistence.EventRecorder;
 import com.afterfall.application.persistence.RunId;
@@ -8,7 +7,6 @@ import com.afterfall.application.persistence.RunMetadata;
 import com.afterfall.application.persistence.RunRecapInputs;
 import com.afterfall.application.persistence.RunRepository;
 import com.afterfall.choice.ChoiceMoment;
-import com.afterfall.choice.ChoiceOption;
 import com.afterfall.domain.*;
 import com.afterfall.domain.EventId;
 import com.afterfall.events.EventSeverity;
@@ -18,7 +16,6 @@ import com.afterfall.observer.InterventionRecord;
 import com.afterfall.observer.InterventionStatus;
 import com.afterfall.observer.InterventionType;
 import com.afterfall.recap.*;
-import com.afterfall.web.dto.StateResponse;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

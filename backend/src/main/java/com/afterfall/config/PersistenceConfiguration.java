@@ -3,7 +3,6 @@ package com.afterfall.config;
 import com.afterfall.application.persistence.EventRecorder;
 import com.afterfall.application.persistence.RunId;
 import com.afterfall.application.persistence.RunRepository;
-import com.afterfall.events.EventBus;
 import com.afterfall.infrastructure.persistence.async.AsyncEventRecorder;
 import com.afterfall.infrastructure.persistence.inmemory.InMemoryEventRecorder;
 import com.afterfall.infrastructure.persistence.inmemory.InMemoryRunRepository;
@@ -104,13 +103,5 @@ public class PersistenceConfiguration {
             @Value("${afterfall.async-recorder.flush-interval-ms:100}") long flushIntervalMs) {
         return new AsyncEventRecorder(inMemoryEventRecorder, inMemoryEventRecorder,
                 RunId.of(defaultRunIdStr), minorCapacity, batchSize, flushIntervalMs);
-    }
-
-    @Bean
-    public EventBus eventBus(AsyncEventRecorder asyncEventRecorder) {
-        EventBus eventBus = new EventBus();
-        // Automatically register AsyncEventRecorder as subscriber so all simulation events reach persistence
-        eventBus.register(asyncEventRecorder);
-        return eventBus;
     }
 }

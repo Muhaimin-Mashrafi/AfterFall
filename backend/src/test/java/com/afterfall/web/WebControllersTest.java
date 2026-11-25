@@ -1,6 +1,5 @@
 package com.afterfall.web;
 
-import com.afterfall.application.SimulationService;
 import com.afterfall.web.dto.*;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.MethodOrderer;

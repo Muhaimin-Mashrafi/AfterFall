@@ -4,8 +4,6 @@ import com.afterfall.application.SimulationService;
 import com.afterfall.application.persistence.EvidenceDiscoveryRepository;
 import com.afterfall.application.persistence.RunId;
 import com.afterfall.application.persistence.RunRepository;
-import com.afterfall.choice.ChoiceMoment;
-import com.afterfall.choice.ChoiceOption;
 import com.afterfall.domain.EventId;
 import com.afterfall.domain.SurvivorId;
 import com.afterfall.observer.InterventionType;

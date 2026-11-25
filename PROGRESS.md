@@ -2,6 +2,12 @@
 
 This file is the handoff point between Claude Code sessions. Update it after every completed task. Keep it factual and concise.
 
+## Backend cleanup (2026-11-25)
+- Removed the orphaned `EventBus` bean in `PersistenceConfiguration` (the engine owns its bus; `SimulationService` registers the run-bound recorder) and reworked `PersistenceWiringIntegrationTest` accordingly.
+- Removed three unused DTOs (`PendingChoiceDto`, `ChoiceOptionDto`, `InterventionRecordDto`), unused imports, and inline fully-qualified names in `SimulationService`.
+- Added `ConcurrentCommandOrderingTest` (interventions queued from 8 threads apply in intervention-id order; same final state as sequential submission).
+- `mvn test`: 307 run, 0 failures, 11 errors, all in `Postgres17LiveIntegrationTest` (no PostgreSQL available in this sandbox; needs PostgreSQL 17). No behaviour or API change.
+
 ## Current status
 - Project: AfterFall - The Last Days of Humanity
 - Canonical specification: `docs/blueprint/AfterFall-Blueprint-Revised-Solo.md`

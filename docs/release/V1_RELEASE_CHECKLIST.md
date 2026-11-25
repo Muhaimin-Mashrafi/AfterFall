@@ -3,7 +3,7 @@
 | Item | Status |
 |---|---|
 | Feature freeze respected (no gameplay changes after Phase 1) | Done |
-| Full suite green on PostgreSQL 17 (`.\mvnw.cmd test`, expect 306 tests) | Run on the presentation machine and tick here: [ ] |
+| Full suite green on PostgreSQL 17 (`.\mvnw.cmd test`, expect 314 tests) | Run on the presentation machine and tick here: [ ] |
 | Event persistence defect fixed (events stored under run id; regression test) | Done (PR 1) |
 | App starts offline with the README steps, PostgreSQL running | Verified in a fresh clone (Linux, PostgreSQL 16) |
 | App starts with no database via `inmemory` profile | Done, covered by `InMemoryModeStartupTest` |

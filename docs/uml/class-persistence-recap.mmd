@@ -1,0 +1,289 @@
+---
+title: "Class diagram 5/5: persistence ports, adapters and final recap"
+---
+classDiagram
+    direction TB
+
+    class RunId {
+        <<record>>
+        +String value
+        +of(value)$ RunId
+    }
+
+    class RunMetadata {
+        <<record>>
+        +RunId runId
+        +long seed
+        +int totalSurvivors
+        +Instant startedAt
+        +Instant endedAt
+        +String endingChapter
+        +String status
+        +started(runId, seed, total, startedAt)$ RunMetadata
+        +completed(endedAt, endingChapter, status) RunMetadata
+    }
+
+    class RunCheckpoint {
+        <<record>>
+        +RunId runId
+        +long tick
+        +int aliveSurvivors
+        +int deceasedSurvivors
+        +int foodQuantity
+        +int waterQuantity
+        +int medicineQuantity
+        +String currentChapter
+        +Instant recordedAt
+    }
+
+    class RunRecapInputs {
+        <<record>>
+        +RunId runId
+        +RunMetadata metadata
+        +List~ChapterTransition~ chapterTransitions
+        +List~ChoiceRecord~ choices
+        +List~InterventionRecord~ interventions
+        +List~StoryCaption~ captions
+        +List~RunCheckpoint~ checkpoints
+    }
+
+    class EventRecorder {
+        <<interface>>
+        +record(runId, event) void*
+        +recordAll(runId, events) void*
+        +eventsForRun(runId) List~SimEvent~*
+        +flush() void
+    }
+
+    class RunRepository {
+        <<interface>>
+        +saveRun(metadata) void*
+        +findRun(runId) Optional~RunMetadata~*
+        +saveCheckpoint(checkpoint) void*
+        +checkpointsForRun(runId) List~RunCheckpoint~*
+        +recordChoice(runId, choiceRecord) void*
+        +choicesForRun(runId) List~ChoiceRecord~*
+        +recordIntervention(runId, interventionRecord) void*
+        +interventionsForRun(runId) List~InterventionRecord~*
+        +recordChapterTransition(runId, transition) void*
+        +chapterTransitionsForRun(runId) List~ChapterTransition~*
+        +recordCaption(runId, caption) void*
+        +captionsForRun(runId) List~StoryCaption~*
+        +loadRecapInputs(runId) RunRecapInputs*
+    }
+
+    class InMemoryEventRecorder {
+        -ConcurrentMap~RunId, ConcurrentMap~EventId, SimEvent~~ storage
+        +record(runId, event) void
+        +recordAll(runId, events) void
+        +eventsForRun(runId) List~SimEvent~
+        +clear() void
+    }
+
+    class InMemoryRunRepository {
+        -ConcurrentMap~RunId, RunMetadata~ runs
+        -ConcurrentMap~RunId, List~RunCheckpoint~~ checkpoints
+        -ConcurrentMap~RunId, ConcurrentMap~String, ChoiceRecord~~ choices
+        -ConcurrentMap~RunId, ConcurrentMap~Long, InterventionRecord~~ interventions
+        -ConcurrentMap~RunId, List~ChapterTransition~~ chapters
+        -ConcurrentMap~RunId, ConcurrentMap~Long, StoryCaption~~ captions
+        +saveRun(metadata) void
+        +findRun(runId) Optional~RunMetadata~
+        +saveCheckpoint(checkpoint) void
+        +checkpointsForRun(runId) List~RunCheckpoint~
+        +recordChoice(runId, choiceRecord) void
+        +choicesForRun(runId) List~ChoiceRecord~
+        +recordIntervention(runId, interventionRecord) void
+        +interventionsForRun(runId) List~InterventionRecord~
+        +recordChapterTransition(runId, transition) void
+        +chapterTransitionsForRun(runId) List~ChapterTransition~
+        +recordCaption(runId, caption) void
+        +captionsForRun(runId) List~StoryCaption~
+        +loadRecapInputs(runId) RunRecapInputs
+        +clear() void
+    }
+
+    class JpaEventRecorder {
+        -SpringDataSimulationEventRepository repository
+        +record(runId, event) void
+        +recordAll(runId, events) void
+        +eventsForRun(runId) List~SimEvent~
+        +flush() void
+    }
+
+    class JpaPostgresRunRepository {
+        -SpringDataSimulationRunRepository runRepo
+        -SpringDataRunCheckpointRepository checkpointRepo
+        -SpringDataChoiceRecordRepository choiceRepo
+        -SpringDataInterventionRecordRepository interventionRepo
+        -SpringDataStoryChapterRepository chapterRepo
+        -SpringDataCaptionEntryRepository captionRepo
+        +saveRun(metadata) void
+        +findRun(runId) Optional~RunMetadata~
+        +saveCheckpoint(checkpoint) void
+        +checkpointsForRun(runId) List~RunCheckpoint~
+        +recordChoice(runId, choiceRecord) void
+        +choicesForRun(runId) List~ChoiceRecord~
+        +recordIntervention(runId, interventionRecord) void
+        +interventionsForRun(runId) List~InterventionRecord~
+        +recordChapterTransition(runId, transition) void
+        +chapterTransitionsForRun(runId) List~ChapterTransition~
+        +recordCaption(runId, caption) void
+        +captionsForRun(runId) List~StoryCaption~
+        +loadRecapInputs(runId) RunRecapInputs
+    }
+
+    class AsyncEventRecorder {
+        -EventRecorder primaryTarget
+        -EventRecorder fallbackTarget
+        -RunId defaultRunId
+        -Queue~QueuedItem~ criticalQueue
+        -BlockingQueue~QueuedItem~ minorQueue
+        -AtomicLong droppedMinorCount
+        -AtomicBoolean fallbackActive
+        -Thread writerThread
+        +record(runId, event) void
+        +recordAll(runId, events) void
+        +onEvents(events) void
+        +eventsForRun(runId) List~SimEvent~
+        +flush() void
+        +close() void
+        +droppedMinorCount() long
+        +isFallbackActive() boolean
+    }
+
+    class EventSubscriber {
+        <<interface>>
+    }
+
+    class DiscrepancyType {
+        <<enumeration>>
+        SUPPRESSED_TRUTH
+        FABRICATED_SHORTAGE
+        DIVISIVE_RUMOUR
+        SELECTIVE_WARNING
+    }
+
+    class EvidenceItem {
+        <<record>>
+        +String evidenceId
+        +long tick
+        +ObserverPolicy policy
+        +String target
+        +String originalReport
+        +String alteredReport
+        +DiscrepancyType discrepancyType
+        +List~EventId~ sourceEventIds
+        +List~SurvivorId~ referencedSurvivorIds
+    }
+
+    class EvidenceService {
+        +classifyDiscrepancy(policy, originalReport, alteredReport) DiscrepancyType
+        +extractEvidence(interventions) List~EvidenceItem~
+    }
+
+    class RecordingScene {
+        <<record>>
+        +long tick
+        +String chapter
+        +String narrativeText
+        +List~EventId~ sourceEventIds
+        +List~SurvivorId~ referencedSurvivorIds
+    }
+
+    class FinalRecording {
+        <<record>>
+        +String runId
+        +long finalTick
+        +String endingChapter
+        +List~RecordingScene~ scenes
+        +String closingLine
+        +MANDATORY_CLOSING_LINE$ = "The settlement fell silent. The Observer remains active."
+    }
+
+    class FinalRecordingGenerator {
+        +generate(runId, finalTick, endingChapter, captions, transitions) FinalRecording
+    }
+
+    class SurvivorOutcome {
+        <<record>>
+        +SurvivorId survivorId
+        +String name
+        +ProfessionType profession
+        +boolean alive
+        +int health
+        +String fateDescription
+    }
+
+    class RunRecap {
+        <<record>>
+        +String runId
+        +long totalTicks
+        +String endingChapter
+        +int initialPopulation
+        +int finalAliveSurvivors
+        +int totalDeceasedSurvivors
+        +Map~String, Integer~ finalResources
+        +List~SurvivorOutcome~ survivorOutcomes
+        +List~RunCheckpoint~ crisisTimeline
+        +List~ChoiceRecord~ choices
+        +List~InterventionRecord~ interventions
+        +List~ChapterTransition~ chapterArc
+        +List~EvidenceItem~ availableEvidence
+        +Set~String~ discoveredEvidenceIds
+        +FinalRecording finalRecording
+    }
+
+    class RecapGenerator {
+        +generateRecap(inputs, availableEvidence, discoveredEvidenceIds) RunRecap
+    }
+
+    class EvidenceDiscoveryRepository {
+        <<interface>>
+        +saveAvailableEvidence(runId, evidence) void
+        +getAvailableEvidence(runId) List~EvidenceItem~
+        +markDiscovered(runId, evidenceId) boolean
+        +getDiscoveredEvidenceIds(runId) Set~String~
+        +isDiscovered(runId, evidenceId) boolean
+        +clear() void
+    }
+
+    class InMemoryEvidenceDiscoveryRepository {
+        -ConcurrentMap~String, ConcurrentMap~String, EvidenceItem~~ available
+        -ConcurrentMap~String, Set~String~~ discovered
+        +saveAvailableEvidence(runId, evidence) void
+        +getAvailableEvidence(runId) List~EvidenceItem~
+        +markDiscovered(runId, evidenceId) boolean
+        +getDiscoveredEvidenceIds(runId) Set~String~
+        +isDiscovered(runId, evidenceId) boolean
+        +clear() void
+    }
+
+    class JpaEvidenceDiscoveryRepository {
+        -SpringDataDiscoveredEvidenceRepository repository
+        -ConcurrentMap~String, ConcurrentMap~String, EvidenceItem~~ cache
+        +saveAvailableEvidence(runId, evidence) void
+        +getAvailableEvidence(runId) List~EvidenceItem~
+        +markDiscovered(runId, evidenceId) boolean
+        +getDiscoveredEvidenceIds(runId) Set~String~
+        +isDiscovered(runId, evidenceId) boolean
+        +clear() void
+    }
+
+    EventRecorder <|.. InMemoryEventRecorder : implements
+    EventRecorder <|.. JpaEventRecorder : implements
+    EventRecorder <|.. AsyncEventRecorder : implements
+    RunRepository <|.. InMemoryRunRepository : implements
+    RunRepository <|.. JpaPostgresRunRepository : implements
+    AsyncEventRecorder o-- EventRecorder : decorates
+    AsyncEventRecorder ..|> EventSubscriber : implements
+    EvidenceDiscoveryRepository <|.. InMemoryEvidenceDiscoveryRepository : implements
+    EvidenceDiscoveryRepository <|.. JpaEvidenceDiscoveryRepository : implements
+    EvidenceItem *-- DiscrepancyType
+    FinalRecording *-- RecordingScene
+    RunRecap *-- FinalRecording
+    RunRecap *-- SurvivorOutcome
+    RunRecap *-- EvidenceItem
+    RecapGenerator ..> RunRecap : produces
+    FinalRecordingGenerator ..> FinalRecording : produces
+    EvidenceService ..> EvidenceItem : extracts

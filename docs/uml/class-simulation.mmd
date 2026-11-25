@@ -1,0 +1,228 @@
+---
+title: "Class diagram 3/5: simulation engine, workers and deterministic merge"
+---
+classDiagram
+    direction TB
+
+    class SimulationLifecycle {
+        <<enumeration>>
+        RUNNING
+        PAUSE_REQUESTED
+        PAUSED
+        STOPPING
+        STOPPED
+        +canTransitionTo(target) boolean
+        +transitionTo(target) SimulationLifecycle
+        +isTerminal() boolean
+        +canExecuteTick() boolean
+    }
+
+    class WorldClock {
+        -long tick
+        -int ticksPerDay
+        -long day
+        +tick() long
+        +day() long
+        +ticksPerDay() int
+        ~advance() void
+        ~rollback() void
+    }
+
+    class StateChangeApplier {
+        +apply(result, survivor)$ void
+        +applyBatch(proposals)$ void
+    }
+
+    class WorldView {
+        <<record>>
+        +long tick
+        +long version
+        +Map~RegionId, RegionView~ regions
+        +Map~SurvivorId, SurvivorView~ survivors
+        +Map~SurvivorId, RegionId~ survivorRegionMap
+        +snapshot(world, tick)$ WorldView
+        +snapshot(world, tick, version)$ WorldView
+    }
+
+    class RegionView {
+        <<record>>
+        +RegionId id
+        +String name
+        +List~SurvivorId~ survivorIds
+    }
+
+    class SurvivorView {
+        <<record>>
+        +SurvivorId id
+        +String name
+        +Personality personality
+        +Profession profession
+        +Map~Need, Integer~ needLevels
+        +int vitality
+        +HealthCondition condition
+        +Map~ItemType, Integer~ inventoryQuantities
+        +int inventoryCapacity
+        +Optional~RegionId~ location
+        +SurvivorStatus status
+        +from(survivor)$ SurvivorView
+    }
+
+    class SurvivorActionResult {
+        <<record>>
+        +SurvivorId survivorId
+        +int sequenceNumber
+        +ActionResult actionResult
+    }
+
+    class MigrationRequest {
+        <<record>>
+        +SurvivorId survivorId
+        +RegionId sourceRegion
+        +RegionId destinationRegion
+        +int actionSequence
+    }
+
+    class RegionResult {
+        <<record>>
+        +RegionId regionId
+        +List~SurvivorActionResult~ survivorResults
+        +List~MigrationRequest~ migrationRequests
+        +actionResults() List~ActionResult~
+    }
+
+    class TickResult {
+        -long tickNumber
+        -long worldVersion
+        -List~RegionResult~ regionResults
+        -List~ProposedEvent~ events
+        -List~ResourceClaim~ resourceClaims
+        -List~MigrationRequest~ migrationRequests
+        -int survivorsProcessed
+        -int actionsAccepted
+        -int actionsRejected
+        -boolean success
+        -String failureReason
+        +isSuccess() boolean
+        +tickNumber() long
+        +worldVersion() long
+    }
+
+    class SeededRandomFactory {
+        -long runSeed
+        +createForRegion(regionId, tick) SplittableRandom
+    }
+
+    class RegionWorkerPool {
+        +WORKER_COUNT = 4$
+        -ExecutorService executor
+        +poolSize() int
+        +invokeAll(tasks) List~Future~RegionResult~~
+        +shutdown() void
+        +close() void
+    }
+
+    class RegionTask {
+        <<record, Callable~RegionResult~>>
+        +RegionId regionId
+        +WorldView worldView
+        +long tick
+        +SplittableRandom rng
+        +Function~BehaviorContext, Action~ actionDecider
+        +call() RegionResult
+    }
+
+    class RegionWorker {
+        -RegionId regionId
+        -WorldView worldView
+        -long tick
+        -SplittableRandom rng
+        -Function~BehaviorContext, Action~ actionDecider
+        +evaluate() RegionResult
+    }
+
+    class MigrationCoordinator {
+        -Settlement settlement
+        +applyMigrations(requests) List~AppliedMigration~
+        +rollbackMigrations(applied) void
+    }
+
+    class MigrationHandoff {
+        +executeMigration(settlement, survivor, source, destination)$ void
+    }
+
+    class TickCoordinator {
+        -World world
+        -WorldClock clock
+        -Function~BehaviorContext, Action~ actionDecider
+        -RegionWorkerPool workerPool
+        -SeededRandomFactory randomFactory
+        -MigrationCoordinator migrationCoordinator
+        -AtomicBoolean tickGuard
+        -long worldVersion
+        +executeTick() TickResult
+        +worldVersion() long
+        +shutdown() void
+        +close() void
+    }
+
+    class SimulationEngine {
+        -World world
+        -WorldClock clock
+        -TickCoordinator coordinator
+        -SimulationLifecycle lifecycle
+        -WorldView latestSnapshot
+        +start() void
+        +tick() TickResult
+        +pause() void
+        +requestPause() void
+        +resume() void
+        +stop() void
+        +getLatestSnapshot() WorldView
+        +getStatus() SimulationLifecycle
+    }
+
+    class World {
+    }
+
+    class CrisisManager {
+    }
+
+    class ObserverAI {
+    }
+
+    class EventBus {
+    }
+
+    class ChoiceCoordinator {
+    }
+
+    class ChapterManager {
+    }
+
+    SimulationEngine *-- "1" SimulationLifecycle : manages
+    SimulationEngine *-- "1" WorldClock : time
+    SimulationEngine *-- "1" TickCoordinator : delegates
+    SimulationEngine o-- "1" WorldView : publishes
+    TickCoordinator ..> WorldView : creates
+    TickCoordinator *-- "1" RegionWorkerPool : manages
+    TickCoordinator *-- "1" SeededRandomFactory : generates RNG
+    TickCoordinator *-- "1" MigrationCoordinator : resolves migration
+    TickCoordinator ..> StateChangeApplier : applies batch
+    TickCoordinator ..> TickResult : produces
+    TickCoordinator o-- "1" World : accesses
+    TickCoordinator o-- "1" WorldClock : advances
+    RegionWorkerPool ..> RegionTask : executes
+    RegionTask ..> RegionWorker : delegates
+    RegionWorker ..> RegionResult : produces
+    MigrationCoordinator ..> MigrationHandoff : uses
+    RegionResult *-- "0..*" SurvivorActionResult : contains
+    RegionResult *-- "0..*" MigrationRequest : contains
+    TickResult *-- "0..*" MigrationRequest : preserves
+    TickResult *-- "0..*" RegionResult : contains
+    WorldView *-- "4" RegionView : contains
+    WorldView *-- "20..30" SurvivorView : contains
+    TickCoordinator *-- "1" CrisisManager : coordinates
+    TickCoordinator *-- "1" ObserverAI : coordinates
+    TickCoordinator *-- "1" EventBus : publishes to
+    TickCoordinator *-- "1" ChoiceCoordinator : coordinates
+    TickCoordinator *-- "1" ChapterManager : coordinates

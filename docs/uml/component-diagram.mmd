@@ -1,128 +1,69 @@
-%% AfterFall - UML Component Diagram (Implemented Architecture, M12)
-%% Solid borders: Implemented production components.
-%% External/Database: PostgreSQL 17 database.
-%% Dependency direction: Core depends only on domain abstractions. Infrastructure and Web depend on Application/Core.
+---
+title: "AfterFall component diagram (V1, as implemented)"
+---
+%% Layers read top to bottom. Arrows point from the depending component to the component it uses.
+%% The simulation core (inside the Plain-Java core box) imports no Spring, JPA or PostgreSQL class (checked by CoreBoundaryTest).
+%% Dotted arrows with <<implements>> show Dependency Inversion: adapters implement ports owned by the application layer.
 flowchart TB
-    classDef frontend fill:#ECE8E1,stroke:#171816,stroke-width:2px,color:#171816
-    classDef web fill:#D9D4C7,stroke:#171816,stroke-width:2px,color:#171816
-    classDef app fill:#E2DDD2,stroke:#171816,stroke-width:2px,color:#171816
-    classDef core fill:#FFFFFF,stroke:#171816,stroke-width:2px,color:#171816
-    classDef infra fill:#D0CBC0,stroke:#171816,stroke-width:2px,color:#171816
-    classDef external fill:#827C6D,stroke:#171816,stroke-width:2px,color:#FFFFFF
+    classDef ui fill:#ECE8E1,stroke:#171816,color:#171816
+    classDef web fill:#D9D4C7,stroke:#171816,color:#171816
+    classDef app fill:#E2DDD2,stroke:#171816,color:#171816
+    classDef core fill:#FFFFFF,stroke:#171816,color:#171816
+    classDef port fill:#F4F1EA,stroke:#79504A,stroke-width:2px,color:#171816
+    classDef infra fill:#D0CBC0,stroke:#171816,color:#171816
+    classDef ext fill:#827C6D,stroke:#171816,color:#FFFFFF
 
-    subgraph Browser["Browser Client (HTML5 / Vanilla JS / CSS)"]
-        direction TB
-        Screens["Four HTML Screens:<br/>1. index.html (Prologue & Setup)<br/>2. story.html (Observation Deck & Controls)<br/>3. people.html (Biometric Dossier)<br/>4. records.html (Forensic Records & Recap)"]:::frontend
-        JsClients["Client Scripts:<br/>api.js (REST fetch)<br/>ws.js (STOMP over SockJS)"]:::frontend
-        Screens --- JsClients
+    Browser["<b>Browser</b><br/>index / story / people / records .html<br/>api.js (REST) + ws.js (STOMP)"]:::ui
+
+    subgraph Web["Web layer: com.afterfall.web, config"]
+        Rest["REST controllers<br/>Simulation, Story, Observer,<br/>Recap, Metrics"]:::web
+        Stomp["WebSocketConfig +<br/>WebSocketBroadcaster"]:::web
     end
 
-    subgraph WebLayer["Spring Boot Web & Messaging Layer (com.afterfall.web / config)"]
-        direction TB
-        RestControllers["REST Controllers:<br/>- SimulationApiController (/api/sim/*, /api/state, /api/survivors)<br/>- StoryApiController (/api/story, /api/choices/*)<br/>- ObserverApiController (/api/records, /api/interventions/*)<br/>- MetricsApiController (/api/metrics)"]:::web
-        StompBroadcaster["WebSocket/STOMP Infrastructure:<br/>- WebSocketConfig (/ws endpoint)<br/>- WebSocketBroadcaster (/topic/captions, /topic/events)"]:::web
+    subgraph App["Application layer: com.afterfall.application"]
+        Service["SimulationService<br/>(facade over the core)"]:::app
+        Ports["Ports: RunRepository, EventRecorder,<br/>EvidenceDiscoveryRepository"]:::port
     end
 
-    subgraph AppLayer["Application Layer (com.afterfall.application)"]
+    subgraph Core["Plain-Java core: domain, simulation, observer, events, narrator, choice, chapter, recap"]
         direction TB
-        SimService["SimulationService<br/>(Authoritative orchestrator, lifecycle coordination,<br/>caption dispatch, metrics aggregation, persistence bridge)"]:::app
-        subgraph Ports["Persistence Ports (Interfaces)"]
-            RunRepo["RunRepository"]:::app
-            EventRec["EventRecorder"]:::app
-            EvidenceRepo["EvidenceDiscoveryRepository"]:::app
-        end
+        Engine["SimulationEngine<br/>(lifecycle state machine)"]:::core
+        Tick["TickCoordinator<br/>(sole writer, ordered merge)"]:::core
+        Pool["RegionWorkerPool<br/>4 worker threads"]:::core
+        Domain["Domain model + CrisisManager<br/>World, Settlement, Survivor, ResourceStock"]:::core
+        Observer["ObserverAI<br/>4 InterventionPolicy strategies"]:::core
+        Story["ChoiceCoordinator + ChapterManager"]:::core
+        Bus["EventBus<br/>(one queue + thread per subscriber)"]:::core
+        Narrator["Narrator<br/>51 authored templates"]:::core
+        Recap["EvidenceService + RecapGenerator"]:::core
+        Engine --> Tick
+        Tick -->|"immutable WorldView in,<br/>RegionResult out"| Pool
+        Tick -->|"merges into"| Domain
+        Tick --> Observer
+        Tick --> Story
+        Tick -->|"publish(events)"| Bus
+        Bus --> Narrator
     end
 
-    subgraph CoreLayer["Plain Java Simulation Core (No Spring/JPA Imports)"]
-        direction TB
-        subgraph EnginePkg["Simulation Engine (com.afterfall.simulation)"]
-            Engine["SimulationEngine<br/>(Lifecycle state machine, pause guard)"]:::core
-            TickCoord["TickCoordinator<br/>(Deterministic sole-writer merge)"]:::core
-            Workers["RegionWorkerPool (4 Threads)<br/>& 4 RegionWorkers (NORTH, SOUTH, EAST, WEST)"]:::core
-            Clock["WorldClock & SeededRandomFactory"]:::core
-        end
-
-        subgraph DomainPkg["Domain & Mechanics (com.afterfall.domain / crisis)"]
-            WorldModel["World, Settlement, Region, Survivor"]:::core
-            StockModel["ResourceStock (Food, Water, Medicine)"]:::core
-            CrisisManager["CrisisManager (Famine, Disease)"]:::core
-            MigrationHandoff["MigrationHandoff & MigrationCoordinator"]:::core
-        end
-
-        subgraph ObserverPkg["Observer & Narrative (com.afterfall.observer / narrator / events)"]
-            Observer["ObserverAI & 4 Policies<br/>(InformationDistortion, TrustErosion,<br/>ResourcePressure, SelectiveDisclosure)"]:::core
-            Bus["EventBus<br/>(Isolated subscriber queues)"]:::core
-            NarratorComp["Narrator<br/>(46 authored templates, seed-based selection)"]:::core
-        end
-
-        subgraph StoryPkg["Story & Choices (com.afterfall.choice / chapter / recap)"]
-            ChoiceCoord["ChoiceCoordinator<br/>(ChoiceMoment, decision log, consequences)"]:::core
-            ChapterMgr["ChapterManager<br/>(4 threshold-driven chapters)"]:::core
-            RecapGen["RecapGenerator & EvidenceService<br/>(Forensic comparison, final documentary)"]:::core
-        end
+    subgraph Infra["Infrastructure layer: com.afterfall.infrastructure"]
+        Async["AsyncEventRecorder<br/>(writer thread, critical + bounded minor queue)"]:::infra
+        Jpa["JPA adapters (PostgreSQL)"]:::infra
+        Mem["In-memory adapters<br/>(profile: inmemory)"]:::infra
     end
 
-    subgraph InfraLayer["Infrastructure Layer (com.afterfall.infrastructure)"]
-        direction TB
-        AsyncRec["AsyncEventRecorder<br/>(Dedicated writer thread, batch flusher)"]:::infra
-        subgraph JPAAdapters["PostgreSQL JPA Adapters"]
-            JpaRun["JpaPostgresRunRepository"]:::infra
-            JpaEvt["JpaEventRecorder"]:::infra
-            JpaEvidence["JpaEvidenceDiscoveryRepository"]:::infra
-            SpringDataRepos["Spring Data Repositories & JPA Entities"]:::infra
-        end
-        subgraph MemAdapters["In-Memory Adapters (Fallback)"]
-            MemRun["InMemoryRunRepository"]:::infra
-            MemEvt["InMemoryEventRecorder"]:::infra
-            MemEvidence["InMemoryEvidenceDiscoveryRepository"]:::infra
-        end
-    end
+    DB[("PostgreSQL 17<br/>database afterfall")]:::ext
 
-    DB[("PostgreSQL 17 Database<br/>(localhost:5432 / afterfall)")]:::external
-
-    %% Client to Web
-    JsClients -->|"HTTP REST Requests"| RestControllers
-    StompBroadcaster -->|"WebSocket / STOMP Events"| JsClients
-
-    %% Web to Application
-    RestControllers -->|"Invoke actions & query state"| SimService
-    SimService -->|"Broadcast captions & events"| StompBroadcaster
-
-    %% Application to Core
-    SimService -->|"Controls lifecycle & ticks"| Engine
-    SimService -->|"Dispatches choices"| ChoiceCoord
-    SimService -->|"Queries evidence & recaps"| RecapGen
-    SimService -->|"Observer approvals/rejections"| Observer
-
-    %% Core Internal Wiring
-    Engine -->|"Executes ticks"| TickCoord
-    TickCoord -->|"Dispatches parallel evaluation"| Workers
-    Workers -->|"Read immutable snapshot"| WorldModel
-    TickCoord -->|"Sole-writer state merge"| DomainPkg
-    TickCoord -->|"Advances time"| Clock
-    TickCoord -->|"Applies intervention commands"| Observer
-    TickCoord -->|"Publishes canonical SimEvents"| Bus
-    TickCoord -->|"Applies consequences"| ChoiceCoord
-    TickCoord -->|"Evaluates chapter thresholds"| ChapterMgr
-    Bus -->|"Event notification"| NarratorComp
-
-    %% Application / Core to Ports
-    SimService -->|"Persists runs & checkpoints"| RunRepo
-    SimService -->|"Records events"| EventRec
-    SimService -->|"Tracks discovery"| EvidenceRepo
-    Bus -.->|"Asynchronous event fan-out"| AsyncRec
-
-    %% Adapters implement Ports (Dependency Inversion)
-    JpaRun -.->|"implements"| RunRepo
-    JpaEvt -.->|"implements"| EventRec
-    JpaEvidence -.->|"implements"| EvidenceRepo
-    MemRun -.->|"implements"| RunRepo
-    MemEvt -.->|"implements"| EventRec
-    MemEvidence -.->|"implements"| EvidenceRepo
-    AsyncRec -->|"Delegates batches"| JpaEvt
-
-    %% Infrastructure to Database
-    JpaRun --> SpringDataRepos
-    JpaEvt --> SpringDataRepos
-    JpaEvidence --> SpringDataRepos
-    SpringDataRepos -->|"JDBC / SQL"| DB
+    Browser -->|"HTTP"| Rest
+    Stomp -->|"STOMP /topic/*"| Browser
+    Rest --> Service
+    Service --> Stomp
+    Service --> Engine
+    Service --> Story
+    Service --> Recap
+    Service --> Observer
+    Service --> Ports
+    Bus -.->|"subscriber"| Async
+    Async --> Ports
+    Jpa -.->|"implements"| Ports
+    Mem -.->|"implements"| Ports
+    Jpa -->|"JDBC"| DB

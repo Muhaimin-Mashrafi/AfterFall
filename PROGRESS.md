@@ -7,7 +7,7 @@ This file is the handoff point between Claude Code sessions. Update it after eve
 - Canonical specification: `docs/blueprint/AfterFall-Blueprint-Revised-Solo.md`
 - Current milestone: M13 in progress (Phases 1, 2 & 4 complete: Feature Freeze declared; 8 Bug Bash scenarios executed; empirical verification completed for hard JVM termination/persistence recovery, live WebSocket automatic reconnection without manual connect(), 100-entry DOM chronicle cap, and responsive layouts across 1366x768 and 1920x1080; 303 total passing tests).
 - Application code: Spring Boot skeleton, domain models, autonomous behaviors, action commands, 4-worker multithreaded simulation engine, deterministic merge, batch rollback, lifecycle state management, resource pools, crises, ObserverAI, EventBus fan-out, template-driven Narrator, Choice moments & consequence application, threshold-driven Chapter policies, dual-adapter persistence with asynchronous recording, Story-First HTML/CSS/JS web frontend, and Hidden Records & Final Documentary Recap.
-- Last updated: 2026-11-25
+- Last updated: 2026-11-25 (M13 Phase 7 prep: release docs, offline `inmemory` profile; 306 tests, rehearsals and video still pending with Abdullah)
 
 ## Environment (user-reported)
 - Assistant: Google Antigravity
@@ -137,6 +137,14 @@ Must satisfy:
 ## Open items
 - None. M0 through M7 completed and verified (222 passing tests).
 - Awaiting user approval on M7 completion to proceed to M8 (Choices, consequences and four threshold-driven chapters).
+
+## Latest completed task: M13 release preparation (2026-11-25)
+- Full suite: 306 tests run, 305 pass in a PostgreSQL 16 sandbox; the only failure is `Postgres17LiveIntegrationTest` (asserts PostgreSQL 17). Expect 306/306 on PostgreSQL 17 (not yet verified there).
+- Defect found by fresh-clone check: the app could not start at all with PostgreSQL down (Hibernate DDL at boot), contradicting the documented fallback. Fixed: `afterfall.persistence.mode` (default `postgres`, `inmemory` via `--spring.profiles.active=inmemory`, file `application-inmemory.yml`). Adapters are conditional beans in `PersistenceConfiguration`. Test: `InMemoryModeStartupTest`. Smoke-checked: steps ticks, serves all pages and APIs with PostgreSQL stopped.
+- Docs drift fixed: README test counts, stale class names (`SurvivorNeeds`, `SurvivorAction`, `TickResult.builder`, `STARTING` state), broken Windows `file:///` links, and `DEMO_SCRIPT.md` referring to a non-existent property. UML (component, tick sequence, lifecycle) checked against the code; no change needed for the event persistence fix.
+- Removed a stray accidental file committed in PR 1; removed a real DB password from `DEMO_SCRIPT.md` (still in git history).
+- Added `docs/demo/REHEARSAL_PACK.md`, `docs/demo/FALLBACK_VIDEO_PLAN.md`, `docs/release/V1_RELEASE_CHECKLIST.md`.
+- Remaining for Abdullah: three spoken rehearsals, record fallback video, run suite on PostgreSQL 17, merge, tag `v1.0.0`.
 
 ## Latest completed task: M13 Phases 1 & 2 - Feature Freeze & Bug Bash Execution (2026-11-25)
 Declared formal feature freeze for AfterFall V1. Executed all 8 prioritized Bug Bash scenarios across P0, P1, and P2 categories, with reinforced empirical verification on three critical scenarios:

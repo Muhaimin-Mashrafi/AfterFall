@@ -1,5 +1,7 @@
 package com.afterfall.infrastructure.persistence.jpa;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+
 import com.afterfall.application.persistence.RunCheckpoint;
 import com.afterfall.application.persistence.RunId;
 import com.afterfall.application.persistence.RunMetadata;
@@ -41,6 +43,7 @@ import java.util.stream.Collectors;
  * Spring Data JPA implementation of {@link RunRepository} for PostgreSQL 17.
  */
 @Component
+@ConditionalOnProperty(name = "afterfall.persistence.mode", havingValue = "postgres", matchIfMissing = true)
 public class JpaPostgresRunRepository implements RunRepository {
 
     private final SpringDataSimulationRunRepository runRepo;

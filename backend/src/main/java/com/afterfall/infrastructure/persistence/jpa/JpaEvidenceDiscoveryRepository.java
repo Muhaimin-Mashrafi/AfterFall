@@ -1,5 +1,7 @@
 package com.afterfall.infrastructure.persistence.jpa;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+
 import com.afterfall.application.persistence.EvidenceDiscoveryRepository;
 import com.afterfall.application.persistence.RunId;
 import com.afterfall.domain.EventId;
@@ -17,6 +19,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @Repository
+@ConditionalOnProperty(name = "afterfall.persistence.mode", havingValue = "postgres", matchIfMissing = true)
 public class JpaEvidenceDiscoveryRepository implements EvidenceDiscoveryRepository {
 
     private final SpringDataDiscoveredEvidenceRepository repo;

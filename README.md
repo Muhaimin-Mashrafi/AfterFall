@@ -272,7 +272,7 @@ All build and run operations use the Maven Wrapper from the `backend/` directory
 # Navigate to backend directory
 cd backend
 
-# 1. Execute complete test suite (306 tests; needs PostgreSQL 17 for all to pass)
+# 1. Execute complete test suite (314 tests; needs PostgreSQL 17 for all to pass)
 .\mvnw.cmd test
 
 # 2. Package into an executable JAR
@@ -308,7 +308,7 @@ Once the terminal displays `Started AfterFallApplication in X.XXX seconds`, open
 AfterFall maintains a comprehensive automated testing suite ensuring deterministic execution, thread safety, and data integrity.
 
 ### Verified Test Suite Baseline
-- **Total tests:** **306**. On a machine without PostgreSQL 17, 305 pass; the one that does not is `Postgres17LiveIntegrationTest`, which asserts a live PostgreSQL 17 server. With PostgreSQL 17 running and `AFTERFALL_DB_PASSWORD` set, the suite is expected to pass in full (not yet confirmed on PostgreSQL 17).
+- **Total tests:** **314**. With PostgreSQL 17 running and `AFTERFALL_DB_PASSWORD` set, all 314 pass (verified on PostgreSQL 17.12, 0 failures, 0 errors). On a machine without PostgreSQL 17 the 11 tests in `Postgres17LiveIntegrationTest` error out and the other 303 pass.
 
 ### Key Test Categories
 1. **Architecture & Boundaries:**
@@ -397,7 +397,7 @@ AfterFall/
 │   ├── src/main/resources/
 │   │   ├── static/            # Frontend: index.html, story.html, people.html, records.html, CSS, JS
 │   │   └── application.properties
-│   └── src/test/java/com/afterfall/  # 306 automated unit, integration, and concurrency tests
+│   └── src/test/java/com/afterfall/  # 314 automated unit, integration, and concurrency tests
 ├── docs/
 │   ├── blueprint/             # Canonical solo blueprint specification
 │   ├── architecture/          # Technical clarifications & OOP/SOLID/threading map

@@ -21,15 +21,15 @@ public record ChapterConfig(
     public static ChapterConfig defaultConfig() {
         return new ChapterConfig(
                 8,   // D_min = 2 days
-                24,  // D_soft = 6 days
-                48,  // D_hard = 12 days
+                60,  // D_soft = 15 days
+                120, // D_hard = 30 days
                 50,  // T1
                 4,   // N1
                 2,   // E
                 60,  // X
                 40,  // M1
                 40,  // T2
-                15,  // P
+                20,  // P
                 25,  // M2
                 25,  // T3
                 6    // N2

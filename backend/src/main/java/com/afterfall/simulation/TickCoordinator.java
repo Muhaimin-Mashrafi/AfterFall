@@ -11,6 +11,7 @@ import com.afterfall.chapter.ChapterTransition;
 import com.afterfall.chapter.ChapterType;
 import com.afterfall.choice.ChoiceConsequence;
 import com.afterfall.choice.ChoiceCoordinator;
+import com.afterfall.choice.LiveChoiceMoments;
 import com.afterfall.domain.*;
 import com.afterfall.events.EventBus;
 import com.afterfall.events.EventSeverity;
@@ -372,11 +373,27 @@ public final class TickCoordinator {
         }
 
         // 5d'. Settlement upkeep: food produced by this tick's work, then hunger drift
-        SettlementUpkeep.produceFood(stock, totalWorkContribution);
+        SettlementUpkeep.produceFood(stock, totalWorkContribution, currentTick);
         SettlementUpkeep.applyHungerDrift(settlement, currentTick);
 
+        // 5d''. Malnutrition: the weakest healthy survivor falls ill (at most one per tick)
+        SettlementUpkeep.applyMalnutritionIllness(settlement);
+        SettlementUpkeep.applyRecovery(settlement);
+        SettlementUpkeep.applyResilience(settlement, currentTick);
+
         // 5e. Advance crises and apply their effects as the sole writer
+        Set<String> activeBefore = new HashSet<>();
+        for (Crisis crisis : crisisManager.crises()) {
+            if (crisis.isActive()) {
+                activeBefore.add(crisis.name());
+            }
+        }
         List<CrisisEffect> crisisEffects = crisisManager.advanceAll(settlement, stock);
+        for (Crisis crisis : crisisManager.crises()) {
+            if (crisis.isActive() && !activeBefore.contains(crisis.name())) {
+                announceCrisis(crisis, settlement, currentTick, allEvents);
+            }
+        }
         for (CrisisEffect effect : crisisEffects) {
             settlement.survivor(effect.targetId()).ifPresent(survivor -> {
                 for (Map.Entry<Need, Integer> e : effect.needDeltas().entrySet()) {
@@ -554,6 +571,26 @@ public final class TickCoordinator {
         chapterManager.incrementExposureLevel(EXPOSURE_PER_INTERVENTION);
         observerAI.record(intervention, InterventionStatus.APPLIED,
                 "Applied at tick " + currentTick + " boundary with intended effect: " + intervention.intendedEffect());
+    }
+
+    /** Emits a CRITICAL crisis event and raises its choice moment (once per crisis, never over a pending one). */
+    private void announceCrisis(Crisis crisis, Settlement settlement, long currentTick, List<ProposedEvent> allEvents) {
+        List<SurvivorId> alive = settlement.survivors().stream()
+                .filter(Survivor::isAlive).map(Survivor::id).toList();
+        if (alive.isEmpty()) {
+            return;
+        }
+        boolean famine = crisis instanceof FamineCrisis;
+        allEvents.add(new ProposedEvent(famine ? "CRISIS_FAMINE" : "CRISIS_DISEASE", alive.get(0),
+                crisis.name() + " began in the settlement.", 3));
+        nextGlobalEventSequence++;
+        String choiceId = famine ? LiveChoiceMoments.FAMINE_ID : LiveChoiceMoments.OUTBREAK_ID;
+        if (!choiceCoordinator.hasPendingPause() && choiceCoordinator.getChoiceMoment(choiceId).isEmpty()) {
+            String chapterId = chapterManager.currentChapter().name();
+            choiceCoordinator.triggerChoice(famine
+                    ? LiveChoiceMoments.famine(currentTick, chapterId, alive)
+                    : LiveChoiceMoments.outbreak(currentTick, chapterId, alive));
+        }
     }
 
     private void applyQueuedChoiceConsequences(Settlement settlement, long currentTick, List<ProposedEvent> allEvents) {

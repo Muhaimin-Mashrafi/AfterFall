@@ -13,7 +13,7 @@ import com.afterfall.application.persistence.EvidenceDiscoveryRepository;
 import com.afterfall.infrastructure.persistence.inmemory.InMemoryEvidenceDiscoveryRepository;
 import com.afterfall.infrastructure.persistence.jpa.JpaEvidenceDiscoveryRepository;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
@@ -41,12 +41,14 @@ public class PersistenceConfiguration {
 
     @Bean
     @Primary
+    @ConditionalOnProperty(name = "afterfall.persistence.mode", havingValue = "postgres", matchIfMissing = true)
     public EvidenceDiscoveryRepository evidenceDiscoveryRepository(JpaEvidenceDiscoveryRepository jpaRepo) {
         return jpaRepo;
     }
 
     @Bean
     @Primary
+    @ConditionalOnProperty(name = "afterfall.persistence.mode", havingValue = "postgres", matchIfMissing = true)
     public RunRepository runRepository(JpaPostgresRunRepository jpaRepo) {
         return jpaRepo;
     }
@@ -58,6 +60,7 @@ public class PersistenceConfiguration {
     }
 
     @Bean
+    @ConditionalOnProperty(name = "afterfall.persistence.mode", havingValue = "postgres", matchIfMissing = true)
     public AsyncEventRecorder asyncEventRecorder(
             JpaEventRecorder jpaEventRecorder,
             InMemoryEventRecorder inMemoryEventRecorder,
@@ -74,6 +77,33 @@ public class PersistenceConfiguration {
                 batchSize,
                 flushIntervalMs
         );
+    }
+
+    /** Offline/demo mode: in-memory adapters only (process-local, not crash-durable). */
+    @Bean
+    @Primary
+    @ConditionalOnProperty(name = "afterfall.persistence.mode", havingValue = "inmemory")
+    public EvidenceDiscoveryRepository inMemoryPrimaryEvidenceRepository(InMemoryEvidenceDiscoveryRepository repo) {
+        return repo;
+    }
+
+    @Bean
+    @Primary
+    @ConditionalOnProperty(name = "afterfall.persistence.mode", havingValue = "inmemory")
+    public RunRepository inMemoryPrimaryRunRepository(InMemoryRunRepository repo) {
+        return repo;
+    }
+
+    @Bean
+    @ConditionalOnProperty(name = "afterfall.persistence.mode", havingValue = "inmemory")
+    public AsyncEventRecorder asyncEventRecorderInMemory(
+            InMemoryEventRecorder inMemoryEventRecorder,
+            @Value("${afterfall.run.default-id:current-run}") String defaultRunIdStr,
+            @Value("${afterfall.async-recorder.minor-capacity:1000}") int minorCapacity,
+            @Value("${afterfall.async-recorder.batch-size:50}") int batchSize,
+            @Value("${afterfall.async-recorder.flush-interval-ms:100}") long flushIntervalMs) {
+        return new AsyncEventRecorder(inMemoryEventRecorder, inMemoryEventRecorder,
+                RunId.of(defaultRunIdStr), minorCapacity, batchSize, flushIntervalMs);
     }
 
     @Bean

@@ -1,5 +1,7 @@
 package com.afterfall.infrastructure.persistence.jpa;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+
 import com.afterfall.application.persistence.EventRecorder;
 import com.afterfall.application.persistence.RunId;
 import com.afterfall.domain.EventId;
@@ -28,6 +30,7 @@ import java.util.stream.Collectors;
  * <p>Persists simulation events into {@code simulation_events} idempotently by (run_id, event_id).
  */
 @Component
+@ConditionalOnProperty(name = "afterfall.persistence.mode", havingValue = "postgres", matchIfMissing = true)
 public class JpaEventRecorder implements EventRecorder {
 
     private final SpringDataSimulationEventRepository repository;

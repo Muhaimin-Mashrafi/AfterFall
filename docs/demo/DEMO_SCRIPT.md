@@ -30,7 +30,7 @@ Execute these steps in PowerShell before evaluators enter:
    ```powershell
    $env:AFTERFALL_DB_URL="jdbc:postgresql://localhost:5432/afterfall"
    $env:AFTERFALL_DB_USER="postgres"
-   $env:AFTERFALL_DB_PASSWORD="pcuser95"
+   $env:AFTERFALL_DB_PASSWORD="<your_postgres_password>"
    ```
 3. **Clean Build & Test Verification:**
    ```powershell
@@ -59,7 +59,7 @@ TIMELINE OVERVIEW
 01:00 - 02:30  [1:30]  Live Simulation, 4 Workers, Narrative Captions & Biometrics
 02:30 - 04:00  [1:30]  Observer Intervention, Choice Moment, Safe Pause & Consequences
 04:00 - 05:30  [1:30]  Forensic Evidence Discovery, Audit Comparator & Final Recap
-05:30 - 06:30  [1:00]  AOOP Engineering: OOP Pillars, SOLID, Concurrency & 300 Tests
+05:30 - 06:30  [1:00]  AOOP Engineering: OOP Pillars, SOLID, Concurrency & 306 Tests
 06:30 - 07:00  [0:30]  Conclusion, Moral Synthesis & Evaluator Q&A
 ```
 
@@ -230,7 +230,7 @@ TIMELINE OVERVIEW
 >    - Multithreading in simulations usually introduces race conditions. We solved this with immutable `WorldView` snapshots, region-partitioned workers, and sole-writer merging. In `WorkerJitterDeterminismTest`, we injected synthetic 0 to 50 millisecond random thread delays across repeated runs—proving that thread scheduling jitter cannot change a single event ID or survivor outcome.
 >
 > 3. **Testing Rigor:**
->    - The project is backed by **300 automated tests**—including clean shutdown tests, architectural boundary tests, end-to-end restart recovery tests, and a banned-term keyword audit verifying zero sensationalist content."
+>    - The project is backed by **306 automated tests**—including clean shutdown tests, architectural boundary tests, end-to-end restart recovery tests, and a banned-term keyword audit verifying zero sensationalist content."
 
 ---
 
@@ -251,7 +251,7 @@ If any live hardware, network, or environment issue occurs during the presentati
 
 | Scenario / Failure | Root Cause | Immediate Fallback Protocol |
 |---|---|---|
-| **PostgreSQL Down / Connection Refused** | Service stopped or port conflict | 1. Open PowerShell and run: `net start postgresql-x64-17`<br/>2. If database is unavailable, restart backend with Spring profile: `.\mvnw.cmd spring-boot:run -Dspring-boot.run.arguments="--afterfall.persistence.mode=inmemory"` (the built-in in-memory fallback adapter runs 100% offline). |
+| **PostgreSQL Down / Connection Refused** | Service stopped or port conflict | 1. Open PowerShell and run: `net start postgresql-x64-17`<br/>2. If database is unavailable, restart the backend in offline mode: `java -jar target\afterfall-backend-0.0.1-SNAPSHOT.jar --spring.profiles.active=inmemory` (the built-in in-memory fallback adapter runs 100% offline). |
 | **WebSocket / STOMP Disconnected** | Browser background tab throttle or port blip | 1. Notice WS Pill shows `DISCONNECTED`.<br/>2. `ws.js` automatically reconnects every 3 seconds.<br/>3. Manually click **`STEP TICK`** or refresh the page (`F5`); REST fallback immediately retrieves latest state from `/api/state`. |
 | **Choice Moment Does Not Appear Quickly** | Seed variation or high survival | 1. Click **`STEP TICK`** rapidly 5 times.<br/>2. Alternatively, trigger the deterministic choice test endpoint via PowerShell: `Invoke-RestMethod -Method Post http://localhost:8080/api/sim/step` until tick 6 pause fires. |
 | **Browser Freezes / UI Issue** | Browser rendering glitch | 1. Close tab, open fresh tab at `http://localhost:8080/story.html`. State is persisted on the backend service. |

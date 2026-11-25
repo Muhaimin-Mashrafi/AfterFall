@@ -1,0 +1,11 @@
+# Offline / no-database mode: java -jar afterfall-backend-0.0.1-SNAPSHOT.jar --spring.profiles.active=inmemory
+# Uses the in-memory persistence adapters. Data is process-local and NOT crash-durable.
+afterfall:
+  persistence:
+    mode: inmemory
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
+      - org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration
+      - org.springframework.boot.data.jpa.autoconfigure.DataJpaRepositoriesAutoConfiguration

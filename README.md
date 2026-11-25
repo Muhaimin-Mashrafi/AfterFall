@@ -198,7 +198,7 @@ AfterFall was designed to exemplify clean object-oriented architecture and desig
 
 ### Four Pillars of OOP
 1. **Encapsulation:**
-   - Domain invariants are rigorously enforced. For example, `Resource` ensures quantities never fall below zero using private locks and checked boundary methods. `SurvivorNeeds` encapsulates hunger/thirst/health metrics and rejects illegal negative adjustments.
+   - Domain invariants are rigorously enforced. For example, `Resource` ensures quantities never fall below zero using private locks and checked boundary methods. `Needs` encapsulates food/water/rest/safety levels and rejects illegal negative adjustments.
 2. **Abstraction:**
    - Persistence operations are abstracted behind domain interfaces (`RunRepository`, `EventRecorder`, `EvidenceDiscoveryRepository`). The simulation engine communicates strictly via these abstractions without knowledge of JPA or SQL.
 3. **Inheritance:**
@@ -223,11 +223,11 @@ AfterFall was designed to exemplify clean object-oriented architecture and desig
 |---|---|---|
 | **Strategy** | `InterventionPolicy` (`InformationDistortionPolicy`, etc.) | Encapsulates distinct Observer manipulation heuristics. |
 | **Observer** | `EventBus` and `EventSubscriber` | Fans out canonical `SimEvent`s to decoupled consumers (`Narrator`, `AsyncEventRecorder`). |
-| **Command** | `SurvivorAction` and `Intervention` | Encapsulates proposed actions and manipulations as objects to be validated and executed later. |
+| **Command** | `Action` and `Intervention` | Encapsulates proposed actions and manipulations as objects to be validated and executed later. |
 | **Template Method** | `Crisis.advance(Settlement, ResourceStock)` | Outlines the invariant skeleton of crisis progression while delegating specific effects to subclasses. |
-| **Builder** | `SimEvent.builder()`, `TickResult.builder()` | Constructs complex immutable domain and simulation result objects with clear, fluent validation. |
+| **Builder** | `SimEvent.builder()` | Constructs the immutable canonical event object with clear, fluent validation. |
 | **Producer-Consumer** | `AsyncEventRecorder` | Uses a thread-safe queue and dedicated background writer thread to batch-persist simulation events. |
-| **State Machine** | `SimulationEngine` (`SimulationLifecycle`) | Manages valid transitions between `STOPPED`, `STARTING`, `RUNNING`, `PAUSE_REQUESTED`, `PAUSED`, and `STOPPING`. |
+| **State Machine** | `SimulationEngine` (`SimulationLifecycle`) | Manages valid transitions between `RUNNING`, `PAUSE_REQUESTED`, `PAUSED`, `STOPPING` and `STOPPED`. |
 
 ---
 
@@ -270,7 +270,7 @@ All build and run operations use the Maven Wrapper from the `backend/` directory
 # Navigate to backend directory
 cd backend
 
-# 1. Execute complete test suite (300 tests)
+# 1. Execute complete test suite (306 tests)
 .\mvnw.cmd test
 
 # 2. Package into an executable JAR
@@ -284,6 +284,13 @@ Alternatively, you can run directly via Spring Boot:
 ```powershell
 .\mvnw.cmd spring-boot:run
 ```
+
+### Offline / No-Database Mode
+If PostgreSQL is unavailable (for example on a presentation machine), start with the in-memory profile. The application then uses the in-memory persistence adapters; history is process-local and is lost when the process exits:
+```powershell
+java -jar target\afterfall-backend-0.0.1-SNAPSHOT.jar --spring.profiles.active=inmemory
+```
+The UI has no external network dependencies, so both modes work with no internet connection.
 
 ### Accessing the Web Interface
 Once the terminal displays `Started AfterFallApplication in X.XXX seconds`, open your browser:
@@ -299,7 +306,7 @@ Once the terminal displays `Started AfterFallApplication in X.XXX seconds`, open
 AfterFall maintains a comprehensive automated testing suite ensuring deterministic execution, thread safety, and data integrity.
 
 ### Verified Test Suite Baseline
-- **Total Tests Run:** **300**
+- **Total Tests Run:** **306**
 - **Failures:** **0**
 - **Errors:** **0**
 - **Skipped:** **0**
@@ -330,15 +337,15 @@ cd backend
 
 ## 8. UML & Architectural Diagrams
 
-All architectural diagrams are maintained as Mermaid source files in [`docs/uml/`](file:///c:/Users/user/Projects/AfterFall/docs/uml):
+All architectural diagrams are maintained as Mermaid source files in [`docs/uml/`](docs/uml):
 
-- **Component Diagram:** [`docs/uml/component-diagram.mmd`](file:///c:/Users/user/Projects/AfterFall/docs/uml/component-diagram.mmd) — Five-tier component diagram documenting the browser, REST controllers, STOMP broadcaster, `SimulationService`, core simulation engine, dual persistence adapters, and PostgreSQL.
-- **Tick Sequence Diagram:** [`docs/uml/tick-sequence.mmd`](file:///c:/Users/user/Projects/AfterFall/docs/uml/tick-sequence.mmd) — Step-by-step sequence of `TickCoordinator.doExecute()`, from snapshot creation through parallel evaluation, migration handoff, sole-writer merge, and event fan-out.
-- **Decision Sequence Diagram:** [`docs/uml/decision-sequence.mmd`](file:///c:/Users/user/Projects/AfterFall/docs/uml/decision-sequence.mmd) — Complete sequence of choice moment triggers, tick-boundary pausing, REST decision submissions, default fallbacks, and next-tick consequence application.
-- **Cross-Region Handoff Diagram:** [`docs/uml/cross-region-handoff.mmd`](file:///c:/Users/user/Projects/AfterFall/docs/uml/cross-region-handoff.mmd) — Relocation validation, roster mutation, location index updates, and atomic rollback mechanics.
-- **Class Diagram:** [`docs/uml/class-diagram.mmd`](file:///c:/Users/user/Projects/AfterFall/docs/uml/class-diagram.mmd) — Comprehensive structural class diagram of domain entities, value objects, and behavior interfaces.
-- **Concurrency Architecture:** [`docs/uml/concurrency-architecture.mmd`](file:///c:/Users/user/Projects/AfterFall/docs/uml/concurrency-architecture.mmd) — Thread boundaries, snapshot isolation, and sole-writer merge architecture.
-- **Lifecycle State Machine:** [`docs/uml/lifecycle-state.mmd`](file:///c:/Users/user/Projects/AfterFall/docs/uml/lifecycle-state.mmd) — Simulation engine lifecycle states and valid transitions.
+- **Component Diagram:** [`docs/uml/component-diagram.mmd`](docs/uml/component-diagram.mmd) — Five-tier component diagram documenting the browser, REST controllers, STOMP broadcaster, `SimulationService`, core simulation engine, dual persistence adapters, and PostgreSQL.
+- **Tick Sequence Diagram:** [`docs/uml/tick-sequence.mmd`](docs/uml/tick-sequence.mmd) — Step-by-step sequence of `TickCoordinator.doExecute()`, from snapshot creation through parallel evaluation, migration handoff, sole-writer merge, and event fan-out.
+- **Decision Sequence Diagram:** [`docs/uml/decision-sequence.mmd`](docs/uml/decision-sequence.mmd) — Complete sequence of choice moment triggers, tick-boundary pausing, REST decision submissions, default fallbacks, and next-tick consequence application.
+- **Cross-Region Handoff Diagram:** [`docs/uml/cross-region-handoff.mmd`](docs/uml/cross-region-handoff.mmd) — Relocation validation, roster mutation, location index updates, and atomic rollback mechanics.
+- **Class Diagram:** [`docs/uml/class-diagram.mmd`](docs/uml/class-diagram.mmd) — Comprehensive structural class diagram of domain entities, value objects, and behavior interfaces.
+- **Concurrency Architecture:** [`docs/uml/concurrency-architecture.mmd`](docs/uml/concurrency-architecture.mmd) — Thread boundaries, snapshot isolation, and sole-writer merge architecture.
+- **Lifecycle State Machine:** [`docs/uml/lifecycle-state.mmd`](docs/uml/lifecycle-state.mmd) — Simulation engine lifecycle states and valid transitions.
 
 ---
 
@@ -387,7 +394,7 @@ AfterFall/
 │   ├── src/main/resources/
 │   │   ├── static/            # Frontend: index.html, story.html, people.html, records.html, CSS, JS
 │   │   └── application.properties
-│   └── src/test/java/com/afterfall/  # 300 automated unit, integration, and concurrency tests
+│   └── src/test/java/com/afterfall/  # 306 automated unit, integration, and concurrency tests
 ├── docs/
 │   ├── blueprint/             # Canonical solo blueprint specification
 │   ├── architecture/          # Approved technical clarifications

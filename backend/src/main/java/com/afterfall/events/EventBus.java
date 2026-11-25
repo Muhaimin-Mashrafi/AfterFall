@@ -10,6 +10,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -194,6 +195,43 @@ public final class EventBus implements AutoCloseable {
                 return false;
             }
             if (!channel.awaitTermination(remaining, TimeUnit.NANOSECONDS)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Waits for all currently-queued subscriber tasks to complete without shutting down.
+     *
+     * <p>Submits a sentinel no-op task to each subscriber's executor and waits for it to
+     * finish. Because each executor is single-threaded and FIFO, the sentinel can only
+     * complete after all previously enqueued {@code processPending} tasks have finished.
+     *
+     * <p>This method is primarily intended for deterministic testing scenarios where the
+     * caller must ensure all events published before the call have been delivered.
+     *
+     * @param timeout maximum time to wait
+     * @param unit    time unit of the timeout
+     * @return {@code true} if all subscriber queues drained within the timeout
+     */
+    public boolean drainAll(long timeout, TimeUnit unit) {
+        List<Future<?>> sentinels = new ArrayList<>();
+        for (SubscriberChannel channel : channels.values()) {
+            if (channel.isRunning.get()) {
+                sentinels.add(channel.executor.submit(() -> { /* no-op sentinel */ }));
+            }
+        }
+        long nanos = unit.toNanos(timeout);
+        long deadline = System.nanoTime() + nanos;
+        for (Future<?> f : sentinels) {
+            long remaining = deadline - System.nanoTime();
+            if (remaining <= 0) {
+                return false;
+            }
+            try {
+                f.get(remaining, TimeUnit.NANOSECONDS);
+            } catch (Exception e) {
                 return false;
             }
         }

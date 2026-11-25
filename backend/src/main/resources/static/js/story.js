@@ -80,10 +80,15 @@ document.addEventListener('DOMContentLoaded', () => {
   async function loadStory() {
     try {
       const story = await ApiClient.getStory();
-      if (story && story.recentCaptions) {
+      if (story && story.recentCaptions && story.recentCaptions.length > 0) {
         streamFeed.innerHTML = '';
         entryCount = 0;
         story.recentCaptions.forEach(c => appendCaption(c));
+      } else {
+        // If no captions yet, maintain initial chronicler baseline count
+        const existingEntries = streamFeed.querySelectorAll('.caption-entry');
+        entryCount = existingEntries.length;
+        streamCount.textContent = `${entryCount} ENTRIES`;
       }
     } catch (err) {
       console.warn('Could not load story captions:', err);
@@ -115,6 +120,12 @@ document.addEventListener('DOMContentLoaded', () => {
     entry.appendChild(meta);
     entry.appendChild(text);
     streamFeed.appendChild(entry);
+
+    // Scenario 4 Defect Fix: Cap rendered DOM nodes at 100 while preserving scroll
+    while (streamFeed.children.length > 100) {
+      streamFeed.removeChild(streamFeed.firstElementChild);
+    }
+
     streamFeed.scrollTop = streamFeed.scrollHeight;
   }
 
@@ -295,6 +306,21 @@ document.addEventListener('DOMContentLoaded', () => {
       console.warn('WS error:', err);
       wsPill.textContent = 'OFFLINE';
       wsPill.className = 'status-pill status-offline';
+    }
+  });
+
+  // Scenario 5 Guard: Prevent accidental modal dismissal via Escape or outside clicks
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && choiceModal.classList.contains('active')) {
+      e.preventDefault();
+      // Choice pause cannot be escaped; Overseer must submit a decision
+    }
+  });
+
+  choiceModal.addEventListener('click', (e) => {
+    if (e.target === choiceModal) {
+      e.stopPropagation();
+      // Modal backdrop click cannot bypass pause
     }
   });
 

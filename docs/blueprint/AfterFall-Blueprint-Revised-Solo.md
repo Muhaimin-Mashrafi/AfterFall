@@ -573,7 +573,70 @@ Blueprint wins where they differ. What was kept from the solo plan is noted.
 
 ---
 
-## 23. Final project specification [CHANGED where marked]
+## 24. Future Roadmap Track: Observer Embodiment & AfterFall V2 [NEW]
+
+### 24.1 Master Development Sequence
+1. **AfterFall V1 (M0–M13):** Current active baseline. Spring Boot 4, Java 21, PostgreSQL 17, 4-worker deterministic multithreading, story-first HTML/CSS/JS frontend, and documentary recaps.
+2. **AfterFall: Observer Embodiment (O0–O9):** First-person 3D embodiment client (Godot 4 + Blender), backed by the authoritative Java 21 backend. Direct prerequisite for V2.
+3. **AfterFall V2:** Asymmetric multiplayer intelligence warfare: Human Observer vs Human Guardian.
+
+### 24.2 Observer Embodiment Product Vision
+Transforms AfterFall from a story-first browser simulation into an immersive first-person 3D survival simulation experience where the player physically inhabits the settlement as the Observer:
+- First-person walking controller with human-looking hands/body (face concealed in 1st person).
+- Visualizing autonomous survivors moving between quadrants, working, resting, and conversing.
+- Approaching individual survivors to overhear contextual conversations based on real simulation relationships.
+- Executing physical Observer interventions within the world and witnessing immediate survivor behavioral reactions.
+- Seamless transitions to scripted 3rd-person cinematic sequences for major narrative scene moments.
+- Preserves the Monogatari-inspired Quiet Cinematic Minimalism (muted palettes, surreal architecture, alert crimson accents).
+
+### 24.3 Authoritative Technical Architecture
+- **3D Client (Godot 4 / GDScript):** Handles 3D rendering, first-person navigation, character skeletal animation, audio, and physical interaction widgets.
+- **Authoritative Backend (Java 21 / Spring Boot / PostgreSQL 17):** Retains exclusive authority over survivor needs, autonomous decisions, social relationships, Observer policies, crises, and chapter transitions.
+- *Strict Architectural Invariant:* The Godot client visualizes state and submits physical commands; it **never** independently invents or calculates simulation outcomes.
+
+### 24.4 Observer Embodiment Milestones (O0–O9)
+| Milestone | Scope | Status |
+|---|---|---|
+| O0 | Architecture, Godot setup and backend connectivity | Future / Post-M13 |
+| O1 | Human Observer body and first-person controller | Future / Post-M13 |
+| O2 | 3D settlement environment | Future / Post-M13 |
+| O3 | Survivor models, navigation and movement | Future / Post-M13 |
+| O4 | Social interactions and contextual conversations | Future / Post-M13 |
+| O5 | Observer perception, proximity and inspection | Future / Post-M13 |
+| O6 | Physical Observer intervention interface | Future / Post-M13 |
+| O7 | Live manipulation-to-reaction visualization | Future / Post-M13 |
+| O8 | Survivor awareness and cinematic storytelling | Future / Post-M13 |
+| O9 | Full integration, performance and standalone release | Future / Post-M13 |
+
+### 24.5 First Playable MVP Acceptance Criteria
+1. One explorable 3D settlement quadrant.
+2. First-person Observer movement with visible body/hands.
+3. Ten visible survivors driven by real backend state.
+4. Autonomous survivor navigation between stations.
+5. Contextual survivor conversations reflecting real relationships.
+6. Individual survivor inspection dossier interface.
+7. Three existing Observer intervention policies executed physically.
+8. At least one complete intervention-to-visible-reaction sequence.
+9. Actual live REST & WebSocket connectivity to the Java backend.
+
+### 24.6 Full Observer Embodiment Acceptance Gate
+- First-person exploration with dynamic 3rd-person cinematic transitions.
+- Survivors perform genuine simulation-driven activities without decorative scripts.
+- Traceable visual reactions to applied interventions.
+- Survivor awareness of Observer develops according to defined simulation rules.
+- Standalone Windows build running smoothly alongside backend.
+- Complete preservation of V1 functionality.
+
+### 24.7 AfterFall V2 Multiplayer Dependency
+Full V2 multiplayer begins strictly after O0–O9 completion. Introduces:
+- Second human-controlled player: Guardian (asymmetric intelligence console).
+- Hidden intelligence warfare and counter-interventions.
+- Survivor beliefs, memories, and emerging social factions.
+- Multiple branching endings based on real player decisions.
+
+---
+
+## 25. Final project specification [CHANGED where marked]
 
 | Item | Direction |
 |---|---|
